@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 300" role="img" aria-label="Placeholder reserved for an example workflow snapshot">
+  <defs>
+    <pattern id="lp" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#dbe6f5"/>
+    </pattern>
+    <marker id="la" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#4a9eff"/>
+    </marker>
+  </defs>
+  <rect x="1.5" y="1.5" width="477" height="297" rx="14" fill="#f3f7fd" stroke="#cddcf1" stroke-width="2"/>
+  <rect x="14" y="14" width="452" height="272" rx="10" fill="url(#lp)"/>
+  <path d="M214 116 L266 150" stroke="#4a9eff" stroke-width="2" marker-end="url(#la)"/>
+  <rect x="70" y="90" width="144" height="52" rx="11" fill="#ffffff" stroke="#b9d3f2" stroke-width="1.5"/>
+  <circle cx="90" cy="116" r="5" fill="#4a9eff"/>
+  <text x="104" y="121" fill="#33425c" font-family="sans-serif" font-size="14" font-weight="600">Collect</text>
+  <rect x="266" y="150" width="144" height="52" rx="11" fill="#ffffff" stroke="#b9d3f2" stroke-width="1.5"/>
+  <circle cx="286" cy="176" r="5" fill="#22c55e"/>
+  <text x="300" y="181" fill="#33425c" font-family="sans-serif" font-size="14" font-weight="600">Analyze</text>
+  <text x="240" y="248" text-anchor="middle" fill="#64748b" font-family="sans-serif" font-size="15" font-weight="600">Workflow preview</text>
+  <text x="240" y="269" text-anchor="middle" fill="#94a3b8" font-family="sans-serif" font-size="12">Snapshot coming soon</text>
+</svg>
