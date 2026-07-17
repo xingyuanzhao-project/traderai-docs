@@ -1,0 +1,291 @@
+schema_id: multi_agent_research
+name: Multi-Agent Research Pipeline
+description: Planner, parallel analyst group, and synthesizer.
+nodes:
+- node_id: research_planner
+  node_type: agent
+  label: Research Planner
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash-lite
+    temperature: 0.2
+    max_tokens: 512
+    completion_check_max_tokens: 2048
+    response_format: null
+    instruction:
+    - 'Write exactly three concise investigation assignments: one market-price assignment,
+      one European monetary-conditions assignment, and one Bitcoin-news assignment.'
+    - Do not introduce another research topic, company, or hypothetical client.
+    - The market assignment must require fetch_exchange_data with source_id='okx',
+      source_type='ticker', symbol='BTC-USDT', limit=1, interval=null, and query=null.
+    - The macro assignment must require fetch_macro_data with source_id='ecb', source_type='interest_rates',
+      indicator='MRR_FR', limit=1, and query=null.
+    - The news assignment must require fetch_news_data with source_id='guardian',
+      source_type='search', query='Bitcoin', and limit=5.
+    - Direct each downstream analyst to collect the stated source evidence before
+      writing conclusions and to cite its returned evidence ID.
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: research_scope
+        description: Define at least three distinct investigation areas spanning market,
+          macroeconomic, and news evidence.
+        evidence: null
+      requires_final_output: true
+      minimum_output_characters: 160
+      required_output_fields: []
+      requires_evidence_citations: false
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: false
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 300.0
+    y: 100.0
+- node_id: analyst_group
+  node_type: agent_group
+  label: Research Analyst Team
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash-lite
+    temperature: 0.6
+    max_tokens: 4096
+    completion_check_max_tokens: null
+    response_format: null
+    instruction:
+    - 'Assign one analyst to each exact topic: BTC/USDT market price, ECB main refinancing
+      rate, and recent Bitcoin news.'
+    - The price analyst must call fetch_exchange_data with source_id='okx', source_type='ticker',
+      symbol='BTC-USDT', limit=1, interval=null, and query=null.
+    - The macro analyst must call fetch_macro_data with source_id='ecb', source_type='interest_rates',
+      indicator='MRR_FR', limit=1, and query=null.
+    - The news analyst must call fetch_news_data with source_id='guardian', source_type='search',
+      query='Bitcoin', and limit=5.
+    - Provide evidence-based conclusions with returned evidence IDs in square brackets.
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: source_backed_research
+        description: Collect relevant market, macroeconomic, or news evidence for
+          the assigned research question.
+        evidence:
+          minimum_items: 1
+          minimum_records: 0
+          tool_names:
+          - fetch_exchange_data
+          - fetch_macro_data
+          - fetch_news_data
+          source_ids: []
+          source_types: []
+          data_types: []
+          required_fields: []
+      requires_final_output: true
+      minimum_output_characters: 0
+      required_output_fields: []
+      requires_evidence_citations: true
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: false
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config:
+    max_parallel_agents: 3
+    min_agents: 3
+    max_agents: 3
+    group_structure: parallel
+    shared_context: {}
+    sub_agent_read_group_state: true
+    sub_agent_instructions:
+    - Execute only the planner assignment in your system prompt; do not perform tasks
+      assigned to other sub-agents.
+    - Call the connected tool needed for that assignment before writing factual conclusions.
+    - The execution harness returns stable evidence IDs after a tool call; cite the
+      exact returned IDs in square brackets.
+  position:
+    x: 300.0
+    y: 300.0
+- node_id: synthesizer
+  node_type: agent
+  label: Briefing Synthesizer
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash-lite
+    temperature: 0.4
+    max_tokens: 4096
+    completion_check_max_tokens: null
+    response_format: null
+    instruction:
+    - Synthesize the BTC/USDT market, ECB monetary-condition, and Bitcoin-news findings
+      into a coherent briefing.
+    - Highlight relationships or tensions between the three evidence categories.
+    - Cite the supporting upstream evidence IDs for factual claims.
+    - Treat any link from the ECB rate to Bitcoin as a conditional mechanism, not
+      an established causal result; do not label the rate restrictive or accommodative
+      without cited comparative policy evidence.
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: source_backed_report
+        description: Include current BTC/USDT market evidence in an executive summary
+          and detailed findings.
+        evidence:
+          minimum_items: 1
+          minimum_records: 0
+          tool_names:
+          - fetch_exchange_data
+          source_ids:
+          - okx
+          source_types:
+          - ticker
+          data_types:
+          - okx_ticker
+          required_fields:
+          - last
+      - requirement_id: macroeconomic_evidence
+        description: Include the research team's ECB monetary-condition evidence.
+        evidence:
+          minimum_items: 1
+          minimum_records: 0
+          tool_names:
+          - fetch_macro_data
+          source_ids:
+          - ecb
+          source_types:
+          - interest_rates
+          data_types:
+          - ecb_interest_rates
+          required_fields:
+          - 0.value
+      - requirement_id: bitcoin_news_evidence
+        description: Include the research team's recent Bitcoin-news evidence.
+        evidence:
+          minimum_items: 1
+          minimum_records: 0
+          tool_names:
+          - fetch_news_data
+          source_ids:
+          - guardian
+          source_types:
+          - search
+          data_types:
+          - guardian_search
+          required_fields: []
+      requires_final_output: true
+      minimum_output_characters: 240
+      required_output_fields: []
+      requires_evidence_citations: true
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: false
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 300.0
+    y: 500.0
+- node_id: research_data_tools
+  node_type: tool
+  label: Fetch Research Data
+  config:
+    provider: openrouter
+    model_id: ''
+    temperature: 0.7
+    max_tokens: null
+    completion_check_max_tokens: null
+    response_format: null
+    instruction: []
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: disabled
+      requirements: []
+      requires_final_output: false
+      minimum_output_characters: 0
+      required_output_fields: []
+      requires_evidence_citations: false
+    token_budget: 32768
+    scope_window: 5
+    tools:
+    - fetch_exchange_data
+    - fetch_macro_data
+    - fetch_news_data
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 620.0
+    y: 300.0
+edges:
+- edge_id: planner_self_loop
+  edge_type: data_flow
+  source_node_id: research_planner
+  target_node_id: research_planner
+  loop_rounds: 3
+- edge_id: group_self_loop
+  edge_type: data_flow
+  source_node_id: analyst_group
+  target_node_id: analyst_group
+  loop_rounds: 5
+- edge_id: synthesizer_self_loop
+  edge_type: data_flow
+  source_node_id: synthesizer
+  target_node_id: synthesizer
+  loop_rounds: 5
+- edge_id: planner_to_group
+  edge_type: data_flow
+  source_node_id: research_planner
+  target_node_id: analyst_group
+- edge_id: group_to_synth
+  edge_type: data_flow
+  source_node_id: analyst_group
+  target_node_id: synthesizer
+- edge_id: group_to_research_tools
+  edge_type: tool_call
+  source_node_id: analyst_group
+  target_node_id: research_data_tools
+config:
+  total_timeout: 180
+  logging_level: all
+  max_loop_rounds: 10
+  max_iterations: 5
+  iteration_sleep: 0.0
+  save_log: true

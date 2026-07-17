@@ -1,0 +1,117 @@
+schema_id: simple_price_check
+name: Simple Price Check
+description: Single agent that summarizes current market conditions.
+nodes:
+- node_id: analyst
+  node_type: agent
+  label: Market Analyst
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-pro
+    temperature: 0.5
+    max_tokens: 4096
+    completion_check_max_tokens: 2048
+    response_format: null
+    instruction:
+    - Call tools to fetch OKX data.
+    - Get the most recent BTC/USDT data.
+    - State the market facts concisely and cite the returned evidence ID in square
+      brackets.
+    retries: 3
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: current_btc_usdt_market_data
+        description: Collect current BTC/USDT market data from OKX.
+        evidence:
+          minimum_items: 1
+          minimum_records: 1
+          tool_names:
+          - fetch_exchange_data
+          source_ids:
+          - okx
+          source_types:
+          - ticker
+          data_types:
+          - okx_ticker
+          required_fields:
+          - last
+          - high24h
+          - low24h
+          - vol24h
+      requires_final_output: true
+      minimum_output_characters: 80
+      required_output_fields: []
+      requires_evidence_citations: true
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: false
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 320.0
+    y: 160.0
+- node_id: tool-2cddf4fe
+  node_type: tool
+  label: Fetch OKX
+  config:
+    provider: openrouter
+    model_id: ''
+    temperature: 0.7
+    max_tokens: null
+    completion_check_max_tokens: null
+    response_format: null
+    instruction: []
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: disabled
+      requirements: []
+      requires_final_output: false
+      minimum_output_characters: 0
+      required_output_fields: []
+      requires_evidence_citations: false
+    token_budget: 32768
+    scope_window: 5
+    tools:
+    - fetch_exchange_data
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 660.0
+    y: 160.0
+edges:
+- edge_id: analyst_self_loop
+  edge_type: data_flow
+  source_node_id: analyst
+  target_node_id: analyst
+  loop_rounds: 3
+- edge_id: edge-9741ad2b
+  edge_type: tool_call
+  source_node_id: analyst
+  target_node_id: tool-2cddf4fe
+config:
+  total_timeout: 180
+  logging_level: all
+  max_loop_rounds: 10
+  max_iterations: 3
+  iteration_sleep: 0.0
+  save_log: true

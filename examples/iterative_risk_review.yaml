@@ -1,0 +1,325 @@
+schema_id: iterative_risk_review
+name: Iterative Risk Review
+description: Nested schema-level loops that produce a short-term BTC risk verdict.
+  An inner draft-critique loop hardens the risk read; an outer loop returns to data
+  collection when the reporter judges the evidence base insufficient.
+nodes:
+- node_id: data_collector
+  node_type: agent
+  label: Data Collector
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash-lite
+    temperature: 0.3
+    max_tokens: 1536
+    completion_check_max_tokens: 2048
+    response_format: null
+    instruction:
+    - Fetch BTC/USDT market data with fetch_exchange_data using source_id='okx', source_type='ticker',
+      symbol='BTC-USDT', limit=1, interval=null, and query=null.
+    - Fetch the ECB policy rate with fetch_macro_data using source_id='ecb', source_type='interest_rates',
+      indicator='MRR_FR', limit=1, and query=null.
+    - If the reporter has requested one specific additional data point, collect only
+      that on this round.
+    - Report only values the tools returned and cite each returned evidence ID in square
+      brackets.
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: market_evidence
+        description: Collect current BTC/USDT market data from OKX.
+        evidence:
+          minimum_items: 1
+          minimum_records: 1
+          tool_names:
+          - fetch_exchange_data
+          source_ids:
+          - okx
+          source_types:
+          - ticker
+          data_types:
+          - okx_ticker
+          required_fields:
+          - last
+          - high24h
+          - low24h
+          - vol24h
+      - requirement_id: macro_evidence
+        description: Collect the current ECB main refinancing rate.
+        evidence:
+          minimum_items: 1
+          minimum_records: 1
+          tool_names:
+          - fetch_macro_data
+          source_ids:
+          - ecb
+          source_types:
+          - interest_rates
+          data_types:
+          - ecb_interest_rates
+          required_fields:
+          - '0.value'
+      requires_final_output: true
+      minimum_output_characters: 80
+      required_output_fields: []
+      requires_evidence_citations: true
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: true
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 200.0
+    y: 100.0
+- node_id: risk_drafter
+  node_type: agent
+  label: Risk Drafter
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash-lite
+    temperature: 0.4
+    max_tokens: 1024
+    completion_check_max_tokens: 2048
+    response_format: null
+    instruction:
+    - 'Write a three-line BTC short-term risk read from the collected evidence: directional
+      bias, one key price level, one macro caveat.'
+    - Ground every figure in a cited evidence ID; do not introduce numbers the evidence
+      does not contain.
+    - If the critic returned a point, revise the read to resolve it; if no critic point
+      is present, do not invent or quote one.
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: grounded_risk_read
+        description: Produce a risk read whose figures are grounded in collected market
+          evidence.
+        evidence:
+          minimum_items: 1
+          minimum_records: 1
+          tool_names:
+          - fetch_exchange_data
+          source_ids:
+          - okx
+          source_types:
+          - ticker
+          data_types:
+          - okx_ticker
+          required_fields:
+          - last
+      requires_final_output: true
+      minimum_output_characters: 120
+      required_output_fields: []
+      requires_evidence_citations: true
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: true
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 200.0
+    y: 300.0
+- node_id: risk_critic
+  node_type: agent
+  label: Risk Critic
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash-lite
+    temperature: 0.3
+    max_tokens: 512
+    completion_check_max_tokens: 2048
+    response_format: null
+    instruction:
+    - 'Name the single most decision-relevant weakness in the draft: an unsupported
+      claim, a missing price level, or an uncited figure.'
+    - If the draft is already decision-ready, reply with exactly ADEQUATE and nothing
+      else.
+    - Do not rewrite the draft or add new market analysis of your own.
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: single_critique
+        description: Return one decision-relevant weakness or the terminal token ADEQUATE.
+        evidence: null
+      requires_final_output: true
+      minimum_output_characters: 8
+      required_output_fields: []
+      requires_evidence_citations: false
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: true
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 540.0
+    y: 300.0
+- node_id: risk_reporter
+  node_type: agent
+  label: Risk Reporter
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash
+    temperature: 0.4
+    max_tokens: 1024
+    completion_check_max_tokens: 2048
+    response_format: null
+    instruction:
+    - State the final short-term BTC risk verdict as exactly one of elevated, neutral,
+      or contained, and give the single condition that would flip it.
+    - Base the verdict on the collected market and macro evidence and cite each supporting
+      evidence ID in square brackets; always deliver the verdict rather than withholding
+      it.
+    - 'If one further data point would materially sharpen the next round, add a closing
+      line "Next: <data point>" for the collector; this is a refinement request, not
+      a reason to omit the verdict.'
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: risk_verdict
+        description: Deliver a risk verdict grounded in the collected market and macro
+          evidence, with supporting evidence IDs cited.
+        evidence:
+          minimum_items: 1
+          minimum_records: 1
+          tool_names:
+          - fetch_exchange_data
+          source_ids:
+          - okx
+          source_types:
+          - ticker
+          data_types:
+          - okx_ticker
+          required_fields:
+          - last
+      requires_final_output: true
+      minimum_output_characters: 120
+      required_output_fields: []
+      requires_evidence_citations: true
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: true
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 200.0
+    y: 500.0
+- node_id: market_macro_tools
+  node_type: tool
+  label: Market and Macro Data
+  config:
+    provider: openrouter
+    model_id: ''
+    temperature: 0.7
+    max_tokens: null
+    completion_check_max_tokens: null
+    response_format: null
+    instruction: []
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: disabled
+      requirements: []
+      requires_final_output: false
+      minimum_output_characters: 0
+      required_output_fields: []
+      requires_evidence_citations: false
+    token_budget: 32768
+    scope_window: 5
+    tools:
+    - fetch_exchange_data
+    - fetch_macro_data
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 540.0
+    y: 100.0
+edges:
+- edge_id: collect_to_draft
+  edge_type: data_flow
+  source_node_id: data_collector
+  target_node_id: risk_drafter
+  loop_rounds: null
+- edge_id: draft_to_critic
+  edge_type: data_flow
+  source_node_id: risk_drafter
+  target_node_id: risk_critic
+  loop_rounds: null
+- edge_id: critic_to_draft
+  edge_type: data_flow
+  source_node_id: risk_critic
+  target_node_id: risk_drafter
+  loop_rounds: 2
+- edge_id: critic_to_report
+  edge_type: data_flow
+  source_node_id: risk_critic
+  target_node_id: risk_reporter
+  loop_rounds: null
+- edge_id: report_to_collect
+  edge_type: data_flow
+  source_node_id: risk_reporter
+  target_node_id: data_collector
+  loop_rounds: 2
+- edge_id: collector_tools
+  edge_type: tool_call
+  source_node_id: data_collector
+  target_node_id: market_macro_tools
+  loop_rounds: null
+config:
+  total_timeout: 300
+  logging_level: all
+  max_loop_rounds: 10
+  max_iterations: 3
+  iteration_sleep: 0.0
+  save_log: true

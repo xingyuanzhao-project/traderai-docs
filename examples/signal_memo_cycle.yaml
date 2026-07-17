@@ -1,0 +1,304 @@
+schema_id: signal_memo_cycle
+name: Signal Memo Cycle
+description: A linear pipeline with one schema-level revision loop. Intake collects
+  market data, a drafter writes a trading-signal memo, a reviewer loops back with one
+  revision until the memo is sound, and a finalizer emits the approved memo.
+nodes:
+- node_id: data_intake
+  node_type: agent
+  label: Data Intake
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash-lite
+    temperature: 0.3
+    max_tokens: 1024
+    completion_check_max_tokens: 2048
+    response_format: null
+    instruction:
+    - Fetch BTC/USDT data with fetch_exchange_data using source_id='okx', source_type='ticker',
+      symbol='BTC-USDT', limit=1, interval=null, and query=null.
+    - Pass the returned last price, 24h high, 24h low, and 24h volume downstream as
+      structured facts.
+    - Report only values the tool returned and cite the returned evidence ID in square
+      brackets.
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: intake_market_data
+        description: Collect current BTC/USDT market data from OKX for the memo.
+        evidence:
+          minimum_items: 1
+          minimum_records: 1
+          tool_names:
+          - fetch_exchange_data
+          source_ids:
+          - okx
+          source_types:
+          - ticker
+          data_types:
+          - okx_ticker
+          required_fields:
+          - last
+          - high24h
+          - low24h
+          - vol24h
+      requires_final_output: true
+      minimum_output_characters: 80
+      required_output_fields: []
+      requires_evidence_citations: true
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: true
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 200.0
+    y: 100.0
+- node_id: memo_drafter
+  node_type: agent
+  label: Memo Drafter
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash-lite
+    temperature: 0.5
+    max_tokens: 1280
+    completion_check_max_tokens: 2048
+    response_format: null
+    instruction:
+    - 'Write a trading-signal memo with three parts: the setup, one actionable price
+      level, and the invalidation level.'
+    - Ground each level in a cited intake evidence ID; do not add figures the intake
+      evidence does not contain.
+    - If the reviewer returned a revision, apply it and end with a one-line "Revision:"
+      note stating what changed.
+    - If no reviewer revision is present, write the first draft and do not fabricate
+      or quote reviewer feedback.
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: grounded_memo
+        description: Produce a signal memo whose levels are grounded in intake market
+          evidence.
+        evidence:
+          minimum_items: 1
+          minimum_records: 1
+          tool_names:
+          - fetch_exchange_data
+          source_ids:
+          - okx
+          source_types:
+          - ticker
+          data_types:
+          - okx_ticker
+          required_fields:
+          - last
+      requires_final_output: true
+      minimum_output_characters: 150
+      required_output_fields: []
+      requires_evidence_citations: true
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: true
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 200.0
+    y: 300.0
+- node_id: memo_reviewer
+  node_type: agent
+  label: Memo Reviewer
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash
+    temperature: 0.3
+    max_tokens: 512
+    completion_check_max_tokens: 2048
+    response_format: null
+    instruction:
+    - 'Return exactly one concrete revision the memo needs: a missing risk, an unsupported
+      level, or an unclear invalidation.'
+    - If the memo is sound and every level is cited, reply with exactly APPROVED and
+      nothing else.
+    - Do not rewrite the memo or add market analysis of your own.
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: single_revision
+        description: Return one concrete revision or the terminal token APPROVED.
+        evidence: null
+      requires_final_output: true
+      minimum_output_characters: 8
+      required_output_fields: []
+      requires_evidence_citations: false
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: true
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 540.0
+    y: 300.0
+- node_id: memo_finalizer
+  node_type: agent
+  label: Memo Finalizer
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash-lite
+    temperature: 0.3
+    max_tokens: 1280
+    completion_check_max_tokens: 2048
+    response_format: null
+    instruction:
+    - Emit the final memo using the latest draft and the reviewer's last response.
+    - Fold in the reviewer's revision if one is outstanding; otherwise emit the approved
+      draft unchanged in substance.
+    - Preserve the cited evidence IDs on every price level.
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: final_memo
+        description: Emit the final signal memo grounded in intake market evidence.
+        evidence:
+          minimum_items: 1
+          minimum_records: 1
+          tool_names:
+          - fetch_exchange_data
+          source_ids:
+          - okx
+          source_types:
+          - ticker
+          data_types:
+          - okx_ticker
+          required_fields:
+          - last
+      requires_final_output: true
+      minimum_output_characters: 150
+      required_output_fields: []
+      requires_evidence_citations: true
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: true
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 200.0
+    y: 500.0
+- node_id: intake_tool
+  node_type: tool
+  label: Exchange Data
+  config:
+    provider: openrouter
+    model_id: ''
+    temperature: 0.7
+    max_tokens: null
+    completion_check_max_tokens: null
+    response_format: null
+    instruction: []
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: disabled
+      requirements: []
+      requires_final_output: false
+      minimum_output_characters: 0
+      required_output_fields: []
+      requires_evidence_citations: false
+    token_budget: 32768
+    scope_window: 5
+    tools:
+    - fetch_exchange_data
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 540.0
+    y: 100.0
+edges:
+- edge_id: intake_to_draft
+  edge_type: data_flow
+  source_node_id: data_intake
+  target_node_id: memo_drafter
+  loop_rounds: null
+- edge_id: draft_to_review
+  edge_type: data_flow
+  source_node_id: memo_drafter
+  target_node_id: memo_reviewer
+  loop_rounds: null
+- edge_id: review_to_draft
+  edge_type: data_flow
+  source_node_id: memo_reviewer
+  target_node_id: memo_drafter
+  loop_rounds: 2
+- edge_id: draft_to_final
+  edge_type: data_flow
+  source_node_id: memo_drafter
+  target_node_id: memo_finalizer
+  loop_rounds: null
+- edge_id: review_to_final
+  edge_type: data_flow
+  source_node_id: memo_reviewer
+  target_node_id: memo_finalizer
+  loop_rounds: null
+- edge_id: intake_tool_call
+  edge_type: tool_call
+  source_node_id: data_intake
+  target_node_id: intake_tool
+  loop_rounds: null
+config:
+  total_timeout: 300
+  logging_level: all
+  max_loop_rounds: 10
+  max_iterations: 3
+  iteration_sleep: 0.0
+  save_log: true

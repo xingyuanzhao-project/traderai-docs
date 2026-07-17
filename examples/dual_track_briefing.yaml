@@ -1,0 +1,352 @@
+schema_id: dual_track_briefing
+name: Dual-Track Briefing
+description: A fork-join workflow. A brief setter splits one question into an independent
+  market track and macro track, each collecting its own evidence, then a synthesizer
+  joins both tracks into one briefing that states the price-policy tension.
+nodes:
+- node_id: brief_setter
+  node_type: agent
+  label: Brief Setter
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash-lite
+    temperature: 0.3
+    max_tokens: 512
+    completion_check_max_tokens: 2048
+    response_format: null
+    instruction:
+    - State the briefing question in one sentence, then define exactly two tracks.
+    - Assign the market track to current BTC/USDT price, 24h range, and volume.
+    - Assign the macro track to the current ECB main refinancing rate.
+    - Do not add a third track, a client persona, or any external fact of your own.
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: two_track_scope
+        description: Define exactly one market track and one macro track for the briefing.
+        evidence: null
+      requires_final_output: true
+      minimum_output_characters: 80
+      required_output_fields: []
+      requires_evidence_citations: false
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: true
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 340.0
+    y: 100.0
+- node_id: market_track
+  node_type: agent
+  label: Market Analyst
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash-lite
+    temperature: 0.4
+    max_tokens: 1024
+    completion_check_max_tokens: 2048
+    response_format: null
+    instruction:
+    - Fetch BTC/USDT data with fetch_exchange_data using source_id='okx', source_type='ticker',
+      symbol='BTC-USDT', limit=1, interval=null, and query=null.
+    - Report last price, 24h high, 24h low, and 24h volume as returned.
+    - Draw only on the market track; do not mention monetary policy or invent figures.
+    - Cite the returned evidence ID in square brackets for every number.
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: market_reading
+        description: Report current BTC/USDT price, range, and volume from OKX.
+        evidence:
+          minimum_items: 1
+          minimum_records: 1
+          tool_names:
+          - fetch_exchange_data
+          source_ids:
+          - okx
+          source_types:
+          - ticker
+          data_types:
+          - okx_ticker
+          required_fields:
+          - last
+          - high24h
+          - low24h
+          - vol24h
+      requires_final_output: true
+      minimum_output_characters: 100
+      required_output_fields: []
+      requires_evidence_citations: true
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: true
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 160.0
+    y: 300.0
+- node_id: macro_track
+  node_type: agent
+  label: Macro Analyst
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash-lite
+    temperature: 0.4
+    max_tokens: 1024
+    completion_check_max_tokens: 2048
+    response_format: null
+    instruction:
+    - Fetch the ECB policy rate with fetch_macro_data using source_id='ecb', source_type='interest_rates',
+      indicator='MRR_FR', limit=1, and query=null.
+    - Report the current main refinancing rate as returned.
+    - Draw only on the macro track; do not mention crypto price action or invent figures.
+    - Cite the returned evidence ID in square brackets for the rate.
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: macro_reading
+        description: Report the current ECB main refinancing rate.
+        evidence:
+          minimum_items: 1
+          minimum_records: 1
+          tool_names:
+          - fetch_macro_data
+          source_ids:
+          - ecb
+          source_types:
+          - interest_rates
+          data_types:
+          - ecb_interest_rates
+          required_fields:
+          - '0.value'
+      requires_final_output: true
+      minimum_output_characters: 80
+      required_output_fields: []
+      requires_evidence_citations: true
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: true
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 520.0
+    y: 300.0
+- node_id: briefing_synthesizer
+  node_type: agent
+  label: Briefing Synthesizer
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash
+    temperature: 0.4
+    max_tokens: 1536
+    completion_check_max_tokens: 2048
+    response_format: null
+    instruction:
+    - Combine the market track and macro track into one briefing; use both and omit
+      neither.
+    - State one relationship between the BTC price reading and the ECB rate as a conditional
+      mechanism, not an established cause.
+    - Cite the market and macro evidence IDs behind each factual claim.
+    - Do not introduce data neither track reported.
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: market_input
+        description: Incorporate the market track's BTC/USDT evidence.
+        evidence:
+          minimum_items: 1
+          minimum_records: 1
+          tool_names:
+          - fetch_exchange_data
+          source_ids:
+          - okx
+          source_types:
+          - ticker
+          data_types:
+          - okx_ticker
+          required_fields:
+          - last
+      - requirement_id: macro_input
+        description: Incorporate the macro track's ECB rate evidence.
+        evidence:
+          minimum_items: 1
+          minimum_records: 1
+          tool_names:
+          - fetch_macro_data
+          source_ids:
+          - ecb
+          source_types:
+          - interest_rates
+          data_types:
+          - ecb_interest_rates
+          required_fields:
+          - '0.value'
+      requires_final_output: true
+      minimum_output_characters: 200
+      required_output_fields: []
+      requires_evidence_citations: true
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: true
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 340.0
+    y: 500.0
+- node_id: market_tool
+  node_type: tool
+  label: Exchange Data
+  config:
+    provider: openrouter
+    model_id: ''
+    temperature: 0.7
+    max_tokens: null
+    completion_check_max_tokens: null
+    response_format: null
+    instruction: []
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: disabled
+      requirements: []
+      requires_final_output: false
+      minimum_output_characters: 0
+      required_output_fields: []
+      requires_evidence_citations: false
+    token_budget: 32768
+    scope_window: 5
+    tools:
+    - fetch_exchange_data
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 0.0
+    y: 300.0
+- node_id: macro_tool
+  node_type: tool
+  label: Macro Data
+  config:
+    provider: openrouter
+    model_id: ''
+    temperature: 0.7
+    max_tokens: null
+    completion_check_max_tokens: null
+    response_format: null
+    instruction: []
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: disabled
+      requirements: []
+      requires_final_output: false
+      minimum_output_characters: 0
+      required_output_fields: []
+      requires_evidence_citations: false
+    token_budget: 32768
+    scope_window: 5
+    tools:
+    - fetch_macro_data
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 700.0
+    y: 300.0
+edges:
+- edge_id: brief_to_market
+  edge_type: data_flow
+  source_node_id: brief_setter
+  target_node_id: market_track
+  loop_rounds: null
+- edge_id: brief_to_macro
+  edge_type: data_flow
+  source_node_id: brief_setter
+  target_node_id: macro_track
+  loop_rounds: null
+- edge_id: market_to_join
+  edge_type: data_flow
+  source_node_id: market_track
+  target_node_id: briefing_synthesizer
+  loop_rounds: null
+- edge_id: macro_to_join
+  edge_type: data_flow
+  source_node_id: macro_track
+  target_node_id: briefing_synthesizer
+  loop_rounds: null
+- edge_id: market_track_tool
+  edge_type: tool_call
+  source_node_id: market_track
+  target_node_id: market_tool
+  loop_rounds: null
+- edge_id: macro_track_tool
+  edge_type: tool_call
+  source_node_id: macro_track
+  target_node_id: macro_tool
+  loop_rounds: null
+config:
+  total_timeout: 300
+  logging_level: all
+  max_loop_rounds: 10
+  max_iterations: 3
+  iteration_sleep: 0.0
+  save_log: true
