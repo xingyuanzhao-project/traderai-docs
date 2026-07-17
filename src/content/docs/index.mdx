@@ -1,0 +1,63 @@
+---
+title: Price Monitor Agent
+description: A no-code canvas for building agentic workflows that collect market, macro, news, and social evidence and reason over it to produce trading insight.
+template: splash
+hero:
+  tagline: Build agentic workflows on a canvas. Each node is an agent; each edge is data flow, a tool call, or synchronization. Agents fetch real market, macro, news, and social evidence, reason over it, and only succeed when they meet an explicit, machine-checked completion contract.
+  actions:
+    - text: Open the app
+      link: https://app.traderai.tech
+      icon: external
+      variant: primary
+    - text: Build your first workflow
+      link: /tutorials/first-workflow/
+      icon: right-arrow
+      variant: minimal
+    - text: Browse example workflows
+      link: /guides/patterns/
+      icon: document
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## What it does
+
+<CardGrid>
+  <Card title="Compose on a canvas" icon="setting">
+    Drag agent, agent-group, and tool nodes onto a canvas and wire them with typed edges. The graph you draw *is* the workflow schema the backend executes — no separate config, no code.
+  </Card>
+  <Card title="Ground every claim in evidence" icon="magnifier">
+    Agents call tools to fetch OHLCV candles, policy rates, news, and social posts, then cite the returned evidence IDs. Fetching is a runtime agent decision, not a deploy-time setting.
+  </Card>
+  <Card title="Gate success with contracts" icon="approve-check">
+    A node succeeds only when it satisfies its completion contract: required tools, sources, fields, record counts, and a semantic judge. "Any text passes" is not an option.
+  </Card>
+  <Card title="Run and observe live" icon="rocket">
+    Trigger a run and watch each node stream its tool calls, retries, and output over SSE, with a per-node status ring on the run canvas.
+  </Card>
+</CardGrid>
+
+## Three edge types, one contract
+
+A workflow is a directed graph of nodes joined by three edge types:
+
+- **`data_flow`** — carries output and evidence from a producer agent to a consumer agent.
+- **`tool_call`** — the only way to authorize an agent to call a tool.
+- **`synchronization`** — co-stages two nodes so neither advances until both finish.
+
+The schema is the shared contract between the canvas and the backend. The
+frontend reads and writes it; the backend reads it at execution time and
+orchestrates from it. Neither side owns it. Read the
+[architecture](/explanation/architecture/) for how the five layers fit together.
+
+## Start here
+
+- **New?** Follow the [tutorial](/tutorials/first-workflow/) to import a working
+  workflow, add a provider key, and run it.
+- **Have a goal?** The [how-to guides](/guides/use-an-example/) cover using an
+  example, authoring your own schema, and configuring providers.
+- **Need the rules?** The [reference](/reference/data-model/) documents the data
+  model, contracts, tool catalog, and validation, mirrored from the backend.
+- **Want the why?** The [explanation](/explanation/design-principles/) covers the
+  design principles behind the system.

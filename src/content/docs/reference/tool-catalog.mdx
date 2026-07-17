@@ -1,0 +1,85 @@
+---
+title: Tool catalog
+description: The tools agents can call, grouped by category, and how tool nodes expose them.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Tools are atomic runtime capabilities agents call via the LLM tool-call
+protocol. They are addressable by name in a schema, parameterizable from the
+calling agent's instructions, and return typed, evidence-bearing output. Source
+of truth: `backend/tools/registry.py` (`TOOL_HIERARCHY`).
+
+An agent gains a tool by being connected to a **tool node** whose `config.tools`
+lists it, through a `tool_call` edge. Credentials for each tool are injected at
+run time from **Settings** — see
+[Configure providers and data sources](/guides/configure-providers/).
+
+## Fetch Data
+
+Acquire real market, macro, news, and social evidence.
+
+| Tool | Purpose |
+|---|---|
+| `fetch_exchange_data` | Market data: OHLCV candles, tickers, order books, trades, funding rates. |
+| `fetch_macro_data` | Macro/alternative data: policy rates and economic indicators. |
+| `fetch_news_data` | News and filings: headlines and articles. |
+| `fetch_social_media_data` | Social posts, threads, and hashtag timelines. |
+
+The examples call these with a `source_id`, `source_type`, and query arguments —
+for instance:
+
+```text
+fetch_exchange_data  source_id='okx',  source_type='ticker',         symbol='BTC-USDT', limit=1
+fetch_macro_data     source_id='ecb',  source_type='interest_rates', indicator='MRR_FR', limit=1
+fetch_news_data      source_id='guardian', source_type='search',     query='Bitcoin', limit=5
+fetch_social_media_data source_id='mastodon', source_type='hashtag', query='Bitcoin', limit=5
+```
+
+A tool's returned `data_type` is `f"{source_id}_{source_type}"` (e.g.
+`okx_ticker`), which is what completion contracts match against — see
+[Completion contracts](/reference/completion-contracts/#the-data_type-convention).
+
+## Data Analysis
+
+Compute over fetched market data.
+
+| Tool | Purpose |
+|---|---|
+| `technical_analysis` | Technical indicators (RSI, MACD, Bollinger Bands, ATR, VWAP, moving averages, …). |
+| `quantitative_analysis` | Statistical metrics (alpha, beta, Sharpe, drawdown, correlation, …). |
+| `signal_analysis` | Higher-level signal detection: patterns, threshold crossings, supports, divergence. |
+| `diagnostic_analysis` | Diagnostic checks over series. |
+| `detect_regime` | Regime detection. |
+| `estimate_parameters` | Parameter estimation. |
+| `simulate_process` | Process simulation. |
+| `run_monte_carlo` | Monte Carlo simulation. |
+
+## Text Analysis
+
+Turn large text corpora into structured, scored signal.
+
+| Tool | Purpose |
+|---|---|
+| `chunk_text` | Chunk, window, deduplicate, and normalize large corpora. |
+| `semantic_search` | Retrieve over stored data or documents. |
+| `extract_entities` | Named-entity and relationship extraction (tickers, companies, people, dates). |
+| `classify_text` | Classify text into categories. |
+| `score_text` | Score sentiment, relevance, or credibility, per document and per entity. |
+| `summarize_text` | Single-doc, multi-doc, and delta summarization. |
+| `cross_modal_alignment` | Anchor text claims to fetched structured data. |
+
+## Output
+
+Emit results outside the workflow.
+
+| Tool | Purpose |
+|---|---|
+| `send_webhook` | POST to a webhook. |
+| `send_email` | Send an email alert. |
+| `send_telegram` | Send a Telegram message. |
+| `write_output` | Structured export / append to a dataset. |
+
+<Aside type="tip">
+Split fetch and analysis onto **separate tool nodes** when different agents call them — for example a `fetch_*` node for the collector and a text-analysis node for the analyst, as in [News & Social Sentiment Digest](/guides/patterns/#news--social-sentiment-digest).
+</Aside>

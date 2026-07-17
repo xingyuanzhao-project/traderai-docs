@@ -1,0 +1,102 @@
+---
+title: Nodes, edges, and loops
+description: Node types, the three edge types and tool authorization, how a node's prompt is assembled, and the rules for loops and layout.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Source of truth: `backend/schema/validation.py` (edges, loops),
+`backend/harness/context.py` and `backend/orchestration/executor.py` (prompt
+assembly), `backend/orchestration/loops.py` (loop execution).
+
+## Node types
+
+| `node_type` | Role |
+|---|---|
+| `agent` | One core-agent instance: receives assembled context, calls its model, may issue tool calls, returns structured output. |
+| `agent_group` | A group of sub-agents commanded by an upstream planner; requires `group_config`. |
+| `tool` | A callable capability holder. Its `config.tools` lists the tools it exposes; agents reach them through a `tool_call` edge. |
+
+### Node naming (`label`)
+
+`label` is the node's **anchoring task at runtime**, not just a display name, so
+keep it a tight functionary role:
+
+- **Good:** `Data Collector`, `Risk Critic`, `Briefing Synthesizer`. Tool nodes
+  name the capability: `Exchange Data`, `Market and Macro Data`.
+- **Avoid:** a full task sentence as the label — it buries the task in the anchor
+  string and duplicates `instruction`.
+
+## Edges and tool authorization
+
+| `edge_type` | From → To | Purpose |
+|---|---|---|
+| `data_flow` | producer → consumer (consumer must be `agent`/`agent_group`) | Carries output **and evidence** downstream. |
+| `tool_call` | `agent`/`agent_group` → `tool` | The **only** way to authorize a node to call a tool. |
+| `synchronization` | executable node ↔ executable node | Co-stages two nodes; neither advances until both finish. |
+
+Rules enforced by validation:
+
+- A `tool_call` edge authorizes the calling agent to use the tools listed on the
+  **tool node**. The calling agent keeps `config.tools: []`.
+- A `data_flow` consumer must be an `agent` or `agent_group` — tools receive
+  input only through calls.
+- Every edge endpoint must exist, and every `node_id` must be unique.
+
+## How a node's prompt is assembled
+
+At run time, the harness assembles the messages sent to the model in this order:
+
+1. system prompt (empty for normal nodes);
+2. `config.instruction` bullets → one **user** message (the procedure);
+3. few-shot examples (windowed);
+4. `[Upstream data from <source_node_id>]` blocks from incoming `data_flow` edges;
+5. tool results;
+6. `node.label` → the final **user** message (the anchoring task; never truncated).
+
+Consequences to design around:
+
+- Put the **procedure** in `instruction` and keep the **role** in `label`.
+- Upstream data is truncated largest-first to fit `token_budget`; `label`, the
+  system prompt, and tool results are never truncated.
+
+## Loops and iteration budget
+
+Two kinds of loop exist.
+
+**Single-node loop** — a node iterates on its own output:
+
+- `agent_loop_default: true` → budget comes from `WorkflowConfig.max_iterations`;
+  no self-loop edge needed.
+- `agent_loop_default: false` → the node **must** have a self-loop `data_flow`
+  edge whose `loop_rounds` is the budget (otherwise validation fails).
+
+**Schema-level loop** — a multi-node cycle:
+
+- The back edge carries `loop_rounds` (≤ `config.max_loop_rounds`).
+- Nested loops are an inner cycle inside an outer cycle (see
+  [Iterative Risk Review](/guides/patterns/#iterative-risk-review)).
+
+<Aside type="caution">
+The dependency graph must be **reducible** — loops must be single-entry. An irreducible graph is a validation error (`build_region_tree`).
+</Aside>
+
+## Layout
+
+There is no auto-layout; the editor renders your `position` coordinates as-is
+(`frontend/src/store/workflowStore.ts`). Renderer facts:
+
+- `data_flow` edges route orthogonally from a node's **bottom** port to the
+  target's **top** port.
+- A self-loop arc bulges ~80px to the **right** of the node.
+- A `tool_call` edge is a short double-arc between an agent's **right** port and
+  a tool's **left** port.
+
+Rules that keep a graph readable:
+
+1. Flow top → down: producers above consumers, ~180–200px between rows.
+2. Put a tool on the **same row** as its calling agent, offset ~300px to the side
+   — never stacked directly below it.
+3. Space parallel/sibling agents ~320–360px apart horizontally.
+4. If an agent has a self-loop, keep ~100px clear to its right.
+5. For a schema-level loop, keep the back-edge lane clear of other nodes.

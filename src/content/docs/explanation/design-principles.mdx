@@ -1,0 +1,94 @@
+---
+title: Design principles
+description: The ideas that shape the system — why success is evidence-gated, why the label is the runtime anchor, and why configuration flows through one path.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The [architecture](/explanation/architecture/) explains *what* the pieces are.
+This page explains the *ideas* behind them, so that when you author a schema you
+are working with the grain of the system rather than against it.
+
+## Success is earned, not asserted
+
+The central idea is that an agent does not get to *declare* it is done. A node
+completes only when it satisfies its [completion contract](/reference/completion-contracts/):
+deterministic evidence checks first (did the required tools run? do the records
+carry the required fields?), then a semantic judge against the requirement
+descriptions.
+
+Why this matters: an LLM will happily produce a confident, well-formatted
+paragraph with no data behind it. The contract makes that impossible — a
+"price check" node cannot pass without an `okx_ticker` record that actually has
+a `last` field. This turns a chat model into an accountable pipeline stage.
+
+<Aside type="tip">
+This is why the guides push you toward `mode: explicit` with evidence-backed requirements on every agent node. A character-count minimum is not a contract; required evidence is.
+</Aside>
+
+## Evidence propagates; it is not re-fetched
+
+Evidence gathered by one node travels downstream as first-class data
+(`backend/evidence.py`), carried on `data_flow` edges. A downstream analyst can
+be held to a contract about data an upstream collector fetched — without owning
+the tool-call edge itself — because reachability is checked across
+`expose_downstream_state` / `read_upstream_state`.
+
+The consequence for design: **collect once, reason many times.** You do not
+re-fetch the same ticker in every node; one collector fetches it and every
+downstream node reasons over the same evidence. This is the shape of
+[Sequential Analysis](/guides/patterns/#sequential-analysis) and
+[Dual-Track Briefing](/guides/patterns/#dual-track-briefing).
+
+## The label is the runtime anchor
+
+A node's `label` is not decoration. It is sent as the final, never-truncated
+user message — the node's anchoring task. The ordered bullets in `instruction`
+are the *procedure*; the `label` is the *role*. Keeping them separate is what
+lets the harness truncate bulky upstream data (largest-first, to fit
+`token_budget`) while the node's actual job stays intact.
+
+This is why the [authoring guide](/guides/author-a-schema/) insists on tight
+functionary labels (`Risk Critic`, not a full sentence) and procedural
+instructions.
+
+## One general path for configuration
+
+Every configurable value — provider, model, key, temperature, source endpoint —
+flows from a single origin (the Settings UI or the schema) to the point of use.
+There is no second, "helpful" default hiding in a lower layer that silently
+overrides what you set.
+
+Two concrete expressions of this principle:
+
+- **No hosted key fallback.** If a run needs a provider key and you have not set
+  one, the run surfaces that plainly. It does not quietly fall back to a shared
+  key and bill someone else — the failure is the honest outcome.
+- **CORS is a literal list, not a guess.** The allowed origins are stated
+  explicitly in `render.yaml` rather than derived from a variable that Render
+  does not update for custom domains — so what the browser sends always matches
+  what the API allows.
+
+<Aside type="note">
+The same discipline governs contributions to the codebase: a correct fix wires a value through from its origin instead of fabricating it locally. See the project's `code-integrity-check` discipline.
+</Aside>
+
+## Fail honestly
+
+When a node cannot complete, the system does not pretend otherwise. Retries are
+bounded (`retries`, `retry_waiting_time`); an exhausted node becomes a clean
+`failed` result rather than crashing the run; and `WorkflowConfig.on_node_failure`
+lets you choose between `continue` (finish what you can; the run ends `partial`)
+and `fail_fast` (stop at the first failure). Either way the run's status tells
+the truth about what happened.
+
+## Explicit topology, reducible graphs
+
+There is no auto-layout and no implicit control flow. You place nodes; you draw
+edges; loops must be single-entry (**reducible**) so the orchestrator can resolve
+them into well-defined regions. The editor renders exactly the graph you built —
+what you see is what runs.
+
+The payoff is legibility: a reader can look at a saved schema, or the canvas, and
+know the order of execution and the data dependencies without running it. That
+legibility is the whole point of a no-code canvas over hand-written agent code.

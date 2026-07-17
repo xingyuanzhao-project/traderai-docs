@@ -1,0 +1,139 @@
+---
+title: Workflow pattern gallery
+description: Seven validated example workflows, from a single agent to nested loops, each with the topology, tools, sources, and a download link.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Each workflow below is a complete, structurally validated `WorkflowSchema`.
+Download one and load it with [Import YAML](/guides/use-an-example/), or drop it
+into a self-hosted `schemas/` directory. They are ordered from simplest to most
+elaborate — read them in order and you will have seen every structural feature
+the system offers.
+
+| Workflow | Structure | Nodes / edges |
+|---|---|---|
+| [Simple Price Check](#simple-price-check) | Single agent + tool | 2 / 2 |
+| [Sequential Analysis](#sequential-analysis) | Linear two-stage pipeline | 3 / 4 |
+| [Signal Memo Cycle](#signal-memo-cycle) | Linear pipeline + one revision loop | 5 / 6 |
+| [Dual-Track Briefing](#dual-track-briefing) | Fork-join | 6 / 6 |
+| [News & Social Sentiment Digest](#news--social-sentiment-digest) | Collector + text-analysis tools | 4 / 5 |
+| [Multi-Agent Research](#multi-agent-research) | Planner → parallel group → synthesizer | 4 / 6 |
+| [Iterative Risk Review](#iterative-risk-review) | Nested loops | 5 / 6 |
+
+<Aside type="note">
+All seven default to the **OpenRouter** provider. OKX (exchange) and the ECB (macro) are public sources needing no key; Guardian, Lemmy, and Mastodon (news/social) are public too. See [Configure providers and data sources](/guides/configure-providers/).
+</Aside>
+
+## Simple Price Check
+
+**Download:** [`simple_price_check.yaml`](/examples/simple_price_check.yaml)
+
+One **Market Analyst** agent wired to a **Fetch OKX** tool node. The analyst
+calls `fetch_exchange_data` for the current BTC/USDT ticker and writes a short,
+evidence-cited market summary. A self-loop (`loop_rounds: 3`) lets it iterate
+until its completion contract is met.
+
+- **Teaches:** the minimum viable workflow — one agent, one `tool_call` edge, one
+  evidence-backed completion contract.
+- **Tools:** `fetch_exchange_data`. **Source:** OKX ticker (`okx_ticker`).
+- **Contract:** must return an `okx_ticker` record with `last`, `high24h`,
+  `low24h`, `vol24h`, cite evidence, and produce ≥ 80 characters.
+
+This is the workflow used in the [tutorial](/tutorials/first-workflow/).
+
+## Sequential Analysis
+
+**Download:** [`sequential_analysis.yaml`](/examples/sequential_analysis.yaml)
+
+A **Data Gatherer** collects the BTC/USDT ticker and passes it over a `data_flow`
+edge to a **Senior Analyst**, which produces a conditional bullish/bearish read
+with a risk assessment. Only the gatherer owns the `tool_call` edge to the market
+tool.
+
+- **Teaches:** a linear producer → consumer pipeline, and **contract reachability
+  over `data_flow`** — the analyst contracts against the same `okx_ticker`
+  evidence the gatherer collected, without owning the tool edge itself.
+- **Tools:** `fetch_exchange_data`. **Source:** OKX ticker.
+- Both agents carry self-loops (`loop_rounds: 5`).
+
+## Signal Memo Cycle
+
+**Download:** [`signal_memo_cycle.yaml`](/examples/signal_memo_cycle.yaml)
+
+A linear pipeline with one **schema-level revision loop**. **Data Intake**
+collects the ticker; **Memo Drafter** writes a trading-signal memo (setup, one
+level, invalidation); **Memo Reviewer** returns exactly one revision or the
+terminal token `APPROVED`; **Memo Finalizer** emits the approved memo. The
+reviewer loops back to the drafter (`loop_rounds: 2`).
+
+- **Teaches:** a multi-node revision loop with a terminal token, plus a guardrail
+  bullet ("if no reviewer revision is present, do not fabricate one").
+- **Tools:** `fetch_exchange_data`. **Source:** OKX ticker.
+
+## Dual-Track Briefing
+
+**Download:** [`dual_track_briefing.yaml`](/examples/dual_track_briefing.yaml)
+
+A fork-join. A **Brief Setter** splits one question into two independent tracks:
+a **Market Analyst** (BTC/USDT price, range, volume) and a **Macro Analyst** (the
+ECB main refinancing rate). A **Briefing Synthesizer** joins both tracks and
+states the price–policy tension as a conditional mechanism, not an established
+cause.
+
+- **Teaches:** parallel branches from one source that rejoin at a synthesizer,
+  each branch owning its own tool node.
+- **Tools:** `fetch_exchange_data`, `fetch_macro_data`. **Sources:** OKX ticker,
+  ECB interest rates (`ecb_interest_rates`).
+
+## News & Social Sentiment Digest
+
+**Download:** [`news_sentiment_digest.yaml`](/examples/news_sentiment_digest.yaml)
+
+A **News and Social Collector** fetches Bitcoin news and community posts, then a
+**Sentiment Analyst** summarizes and scores their sentiment using text-analysis
+tools. The collector owns a fetch tool node; the analyst owns a separate
+text-analysis tool node.
+
+- **Teaches:** splitting fetch tools and text-analysis tools onto separate tool
+  nodes for different agents, and a contract that requires a text-analysis tool
+  (`score_text`) in addition to collected evidence.
+- **Tools:** `fetch_news_data`, `fetch_social_media_data`; `summarize_text`,
+  `score_text`, `extract_entities`, `classify_text`, `chunk_text`.
+- **Sources:** Guardian search, Lemmy search, Mastodon hashtag.
+
+## Multi-Agent Research
+
+**Download:** [`multi_agent_research.yaml`](/examples/multi_agent_research.yaml)
+
+A **Research Planner** writes three investigation assignments (market, macro,
+news). A **Research Analyst Team** — an `agent_group` running three sub-agents in
+parallel — executes them, each calling the connected research tool. A **Briefing
+Synthesizer** joins the findings into one briefing.
+
+- **Teaches:** the `agent_group` node — a planner hands work to a group whose
+  `group_config` sets `group_structure: parallel` with `min_agents`/`max_agents`
+  of 3, and whose `sub_agent_instructions` scope each sub-agent to one assignment.
+- **Tools:** `fetch_exchange_data`, `fetch_macro_data`, `fetch_news_data`.
+- **Sources:** OKX ticker, ECB interest rates (`MRR_FR`), Guardian search.
+
+## Iterative Risk Review
+
+**Download:** [`iterative_risk_review.yaml`](/examples/iterative_risk_review.yaml)
+
+The most elaborate example: **nested schema-level loops** producing a short-term
+BTC risk verdict. An inner draft-critique loop (**Risk Drafter** ↔ **Risk
+Critic**, `loop_rounds: 2`) hardens the read; an outer loop returns from the
+**Risk Reporter** to the **Data Collector** (`loop_rounds: 2`) when the evidence
+base is judged insufficient. The critic emits the terminal token `ADEQUATE`.
+
+- **Teaches:** an inner cycle nested inside an outer cycle, with reducible
+  single-entry loops, and a reporter that can request one more data point without
+  withholding its verdict.
+- **Tools:** `fetch_exchange_data`, `fetch_macro_data`. **Sources:** OKX ticker,
+  ECB interest rates.
+
+---
+
+Ready to build your own? Import the closest match and adapt it, or start from
+[Author a schema](/guides/author-a-schema/).

@@ -1,0 +1,189 @@
+schema_id: sequential_analysis
+name: Sequential Analysis Pipeline
+description: "Two agents in sequence \u2014 first gathers context, second analyzes."
+nodes:
+- node_id: data_gatherer
+  node_type: agent
+  label: Data Gatherer
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash-lite
+    temperature: 0.3
+    max_tokens: 2048
+    completion_check_max_tokens: null
+    response_format: null
+    instruction:
+    - Call fetch_exchange_data with source_id='okx', source_type='ticker', symbol='BTC-USDT',
+      limit=1, interval=null, and query=null.
+    - Collect and structure the returned market information.
+    - Output must be factual, well-organized, and cite the returned evidence ID in
+      square brackets.
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: btc_usdt_market_evidence
+        description: Collect current BTC/USDT market data from OKX for downstream
+          analysis.
+        evidence:
+          minimum_items: 1
+          minimum_records: 1
+          tool_names:
+          - fetch_exchange_data
+          source_ids:
+          - okx
+          source_types:
+          - ticker
+          data_types:
+          - okx_ticker
+          required_fields:
+          - last
+          - high24h
+          - low24h
+          - vol24h
+      requires_final_output: true
+      minimum_output_characters: 100
+      required_output_fields: []
+      requires_evidence_citations: true
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: false
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 200.0
+    y: 140.0
+- node_id: analyst
+  node_type: agent
+  label: Senior Analyst
+  config:
+    provider: openrouter
+    model_id: google/gemini-2.5-flash-lite
+    temperature: 0.7
+    max_tokens: 2048
+    completion_check_max_tokens: null
+    response_format: null
+    instruction:
+    - Produce a structured analysis based only on the gathered market evidence.
+    - State one conditional bullish scenario and one conditional bearish scenario
+      using only the gathered market evidence.
+    - Include risk assessment and confidence level.
+    - Cite the upstream evidence ID for every factual market claim.
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: explicit
+      requirements:
+      - requirement_id: grounded_market_analysis
+        description: Produce bullish and bearish scenarios, risk assessment, and confidence
+          based on the collected market evidence.
+        evidence:
+          minimum_items: 1
+          minimum_records: 1
+          tool_names:
+          - fetch_exchange_data
+          source_ids:
+          - okx
+          source_types:
+          - ticker
+          data_types:
+          - okx_ticker
+          required_fields:
+          - last
+          - high24h
+          - low24h
+          - vol24h
+      requires_final_output: true
+      minimum_output_characters: 180
+      required_output_fields: []
+      requires_evidence_citations: true
+    token_budget: 32768
+    scope_window: 5
+    tools: []
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    agent_loop_default: false
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 200.0
+    y: 380.0
+- node_id: market_data_tool
+  node_type: tool
+  label: Fetch Market Data
+  config:
+    provider: openrouter
+    model_id: ''
+    temperature: 0.7
+    max_tokens: null
+    completion_check_max_tokens: null
+    response_format: null
+    instruction: []
+    retries: 2
+    retry_waiting_time: 1.5
+    completion_contract:
+      mode: disabled
+      requirements: []
+      requires_final_output: false
+      minimum_output_characters: 0
+      required_output_fields: []
+      requires_evidence_citations: false
+    token_budget: 32768
+    scope_window: 5
+    tools:
+    - fetch_exchange_data
+    tool_strict: true
+    tool_choice: auto
+    parallel_tool_calls: true
+    call_budget: 50
+    rate_limit_per_minute: 30
+    few_shot_examples: []
+    read_upstream_state: true
+    expose_downstream_state: true
+    read_orchestration_state: false
+  group_config: null
+  position:
+    x: 540.0
+    y: 140.0
+edges:
+- edge_id: data_gatherer_self_loop
+  edge_type: data_flow
+  source_node_id: data_gatherer
+  target_node_id: data_gatherer
+  loop_rounds: 5
+- edge_id: analyst_self_loop
+  edge_type: data_flow
+  source_node_id: analyst
+  target_node_id: analyst
+  loop_rounds: 5
+- edge_id: data_to_analyst
+  edge_type: data_flow
+  source_node_id: data_gatherer
+  target_node_id: analyst
+- edge_id: gatherer_to_market_data
+  edge_type: tool_call
+  source_node_id: data_gatherer
+  target_node_id: market_data_tool
+config:
+  total_timeout: 120
+  logging_level: all
+  max_loop_rounds: 10
+  max_iterations: 5
+  iteration_sleep: 0.0
+  save_log: true

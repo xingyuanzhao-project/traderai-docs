@@ -1,0 +1,89 @@
+---
+title: Build and run your first workflow
+description: Import the Simple Price Check example, add a provider key, run it, and read the result — the shortest complete path through the app.
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+This tutorial takes you from an empty app to a completed run in a few minutes.
+You will import a working one-agent workflow, give it an LLM key, run it, and
+read a market summary grounded in live exchange data.
+
+You will use **Simple Price Check**: one Market Analyst agent that calls
+`fetch_exchange_data` for the current BTC/USDT ticker on OKX and writes a short,
+evidence-cited summary. OKX is a public data source, so the only credential you
+need is one LLM provider key.
+
+<Aside type="note">
+Everything happens in the hosted app at <a href="https://app.traderai.tech">app.traderai.tech</a>. No install and no account are required; your provider key is held in the app for your session, not shared.
+</Aside>
+
+## Steps
+
+<Steps>
+
+1. **Open the app.** Go to <a href="https://app.traderai.tech">app.traderai.tech</a>.
+   You land on the **Canvas** tab, with a **Schemas** panel on the left.
+
+2. **Add an LLM provider key.** Open the **Settings** tab. Under the LLM
+   providers, find **OpenRouter**, paste your OpenRouter API key, and **Save**.
+   The example runs on `google/gemini-2.5-pro` through OpenRouter; you can change
+   the model per node later.
+
+   <Aside type="tip">
+   Don't have a key yet? Any provider works — see [Configure providers and data sources](/guides/configure-providers/). If you use a different provider, change the analyst node's provider and model after importing (step 5).
+   </Aside>
+
+3. **Download the example.** Save
+   [`simple_price_check.yaml`](/examples/simple_price_check.yaml) to your
+   computer.
+
+4. **Import it.** Back on the **Canvas** tab, click **Import YAML** on the
+   Schemas panel and choose the file you just downloaded. The workflow loads onto
+   the canvas: a **Market Analyst** agent wired to a **Fetch OKX** tool node.
+
+5. **Review the canvas.** Click the Market Analyst node to inspect its
+   configuration in the right-hand panel: its instructions, the
+   `fetch_exchange_data` tool authorization (the green `tool_call` edge to
+   Fetch OKX), and its completion contract. You don't need to change anything.
+
+6. **Save.** Click **Save** on the Schemas panel. The workflow is now persisted
+   and appears in the schema list.
+
+7. **Run.** With the schema selected, click **Run**. The app switches to the
+   **Runs** tab and starts streaming.
+
+8. **Watch it execute.** On the run canvas, the Market Analyst node turns blue
+   (in progress) as it calls the tool, then green when it completes. The event
+   feed shows the `tool_call`, the returned `okx_ticker` evidence, and the final
+   output.
+
+9. **Read the result.** The analyst's final message states the current BTC/USDT
+   last price, 24-hour high, low, and volume, each citing the returned evidence
+   ID in square brackets — for example, `last 63,240 [e1]`.
+
+</Steps>
+
+## What just happened
+
+The run only succeeded because it satisfied the node's **completion contract**.
+Simple Price Check requires the analyst to actually collect the evidence, not
+just talk about it:
+
+- it must call `fetch_exchange_data` against `source_id: okx`,
+  `source_type: ticker`, producing an `okx_ticker` record;
+- that record must contain the fields `last`, `high24h`, `low24h`, `vol24h`;
+- the final output must be at least 80 characters and must cite evidence.
+
+If the model had written a summary without fetching the data, the contract's
+evidence check would have failed and the run would not be marked completed. This
+is the core idea of the system: **success is gated on real evidence**, checked
+by machine, not on plausible-sounding text.
+
+## Next steps
+
+- Try the other workflows in the [pattern gallery](/guides/patterns/) — sequential
+  pipelines, fork-join, revision loops, a parallel analyst group, and nested loops.
+- Learn both ways to run an example, including self-hosting, in
+  [Use an example schema](/guides/use-an-example/).
+- Build your own from scratch with [Author a schema](/guides/author-a-schema/).

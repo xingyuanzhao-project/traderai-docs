@@ -1,0 +1,107 @@
+---
+title: Schema data model
+description: The complete set of legal objects and fields in a WorkflowSchema, mirrored from the backend Pydantic models.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+A workflow is one `WorkflowSchema`. This page lists every legal object and
+field. The source of truth is `backend/schema/models.py`; this reference mirrors
+it. The frontend types in `frontend/src/types/schema.ts` mirror the same models.
+
+<Aside type="note">
+One file per schema: `schemas/<schema_id>.yaml`, where the filename stem **is** the `schema_id`. The running app reads `schemas/` at startup and exposes each valid schema at `GET /api/schemas`.
+</Aside>
+
+## Top-level objects
+
+| Object | Required keys | Notes |
+|---|---|---|
+| `WorkflowSchema` | `schema_id`, `name`, `description`, `nodes`, `edges`, `config` | The top-level container. |
+| `NodeDefinition` | `node_id`, `node_type`, `label`, `config`, `position` | `group_config` is required only when `node_type` is `agent_group`. |
+| `EdgeDefinition` | `edge_id`, `edge_type`, `source_node_id`, `target_node_id` | `loop_rounds` appears only on loop-closing edges. |
+| `WorkflowConfig` | `total_timeout`, `logging_level`, `max_loop_rounds`, `max_iterations`, `iteration_sleep`, `save_log`, `on_node_failure` | Run-level configuration. |
+
+`node_type` ∈ `agent` | `agent_group` | `tool`.
+`edge_type` ∈ `data_flow` | `tool_call` | `synchronization`.
+
+<Aside type="caution">
+These removed fields now **hard-fail** validation — do not reintroduce them: `NodeConfig.termination_conditions`, `completion_contract.criteria`, `completion_contract.missing_input_policy`.
+</Aside>
+
+## `WorkflowConfig`
+
+Consumed by orchestration at execution time.
+
+| Field | Meaning |
+|---|---|
+| `total_timeout` | Maximum wall-clock seconds for the whole run. |
+| `logging_level` | Event verbosity: `none`, `errors`, `critical_info`, `info`, `all` (`all` includes full LLM payloads). |
+| `max_loop_rounds` | Global hard ceiling for any edge-defined loop count. |
+| `max_iterations` | Default agentic-loop budget for nodes with `agent_loop_default: true`. |
+| `iteration_sleep` | Seconds to pause between loop iterations. |
+| `save_log` | When true, the run writes a JSONL log. |
+| `on_node_failure` | `continue` (record and keep going; run ends `partial`) or `fail_fast` (halt on the first non-completed node). |
+
+## `NodeDefinition.config` (`NodeConfig`)
+
+Consumed per node by the core agent as its agent config. Tool nodes carry the
+same object but only `tools` is meaningful for them.
+
+| Field | Meaning |
+|---|---|
+| `provider` | LLM provider: `openrouter`, `openai`, `anthropic`, `google`, `ollama`, `vllm`, `llama_cpp`. |
+| `model_id` | Model identifier for that provider (empty on tool nodes). |
+| `temperature` | Sampling temperature. |
+| `max_tokens` | Output token cap; `null` means the provider default/maximum. |
+| `completion_check_max_tokens` | Token cap for the completion-judge call. |
+| `response_format` | Optional structured-output schema (`null` for free text). |
+| `instruction` | The procedure: an ordered list of imperative bullets sent as one user message. |
+| `retries` | Retry count on a failed LLM call. |
+| `retry_waiting_time` | Seconds between retries. |
+| `completion_contract` | When the node may succeed — see [Completion contracts](/reference/completion-contracts/). |
+| `token_budget` | Token budget for assembled context; upstream data is truncated largest-first to fit. |
+| `scope_window` | Few-shot / history window size. |
+| `tools` | Tools this node exposes. **On tool nodes only**; agent nodes keep this `[]` and gain tool access through a `tool_call` edge. |
+| `tool_strict` | Enforce strict tool-argument schemas. |
+| `tool_choice` | `auto`, `required`, or `none`. |
+| `parallel_tool_calls` | Allow multiple tool calls in one turn. |
+| `call_budget` | Maximum tool calls the node may make. |
+| `rate_limit_per_minute` | Per-node tool-call rate limit. |
+| `few_shot_examples` | Optional `{role, content}` examples (windowed). |
+| `agent_loop_default` | `true` → single-node loop budget from `WorkflowConfig.max_iterations`; `false` → budget from a self-loop edge's `loop_rounds`. |
+| `read_upstream_state` | Read state exposed by upstream nodes. |
+| `expose_downstream_state` | Expose this node's state (and evidence) to downstream nodes. |
+| `read_orchestration_state` | Read orchestration-level state. |
+
+## `NodeDefinition.group_config` (`AgentGroupConfig`)
+
+Required only on `agent_group` nodes. The upstream planner decides the exact
+number and structure of sub-agents within these bounds.
+
+| Field | Meaning |
+|---|---|
+| `max_parallel_agents` | Maximum sub-agents running concurrently. |
+| `min_agents` / `max_agents` | Bounds on group size. |
+| `group_structure` | `parallel`, `sequential`, `pyramid`, or `default` (planner decides). |
+| `shared_context` | Shared memory available to every sub-agent. |
+| `sub_agent_read_group_state` | Whether sub-agents read the group's shared state. |
+| `sub_agent_instructions` | Instructions applied to each sub-agent. |
+
+## `EdgeDefinition`
+
+| Field | Meaning |
+|---|---|
+| `edge_id` | Unique edge identifier. |
+| `edge_type` | `data_flow`, `tool_call`, or `synchronization`. |
+| `source_node_id` / `target_node_id` | Endpoints; both must exist. |
+| `loop_rounds` | Iteration budget on a loop-closing edge (`null` otherwise), capped by `max_loop_rounds`. |
+
+## `NodeDefinition.position`
+
+`position.x` and `position.y` are canvas coordinates. There is no auto-layout;
+the editor renders exactly what you set. See
+[Nodes, edges, and loops](/reference/nodes-edges-loops/#layout) for layout rules.
+
+For how these objects are validated before a run, see
+[Validation](/reference/validation/).

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Price Monitor Agent">
+  <rect width="32" height="32" rx="7" fill="#1a1a2e"/>
+  <!-- candlesticks: wick + body, rising left-to-right, in the app accent blue -->
+  <g stroke="#4a9eff" stroke-width="2" stroke-linecap="round">
+    <line x1="9" y1="9" x2="9" y2="23"/>
+    <line x1="16" y1="6" x2="16" y2="26"/>
+    <line x1="23" y1="12" x2="23" y2="20"/>
+  </g>
+  <g fill="#4a9eff">
+    <rect x="6.5" y="14" width="5" height="7" rx="1"/>
+    <rect x="13.5" y="10" width="5" height="9" rx="1"/>
+    <rect x="20.5" y="14.5" width="5" height="4" rx="1" fill="#4ade80"/>
+  </g>
+</svg>

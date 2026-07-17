@@ -1,0 +1,71 @@
+---
+title: Configure providers and data sources
+description: Set LLM provider keys, point at local model servers, and enable the data sources your workflows fetch from — all on the Settings tab.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The **Settings** tab manages two kinds of credentials: the **LLM providers**
+your agents call, and the **data sources** your tools fetch from. A workflow
+runs only when both are reachable.
+
+<Aside type="note">
+Keys are held in the running app for your session, so agents and tools can use them at run time. They are not baked into any schema and not shared between users.
+</Aside>
+
+## LLM providers
+
+Every agent node names a `provider` and a `model_id`. The provider must be
+configured here.
+
+### Cloud providers
+
+**OpenRouter, OpenAI, Anthropic, Google** each have a row where you enter an API
+key, **Test** it against the provider, and **Save** it. The row shows the
+environment variable the key maps to (for example `OPENROUTER_API_KEY`) and
+whether it is currently configured.
+
+All seven [example workflows](/guides/patterns/) default to **OpenRouter**, so
+adding one OpenRouter key is enough to run them.
+
+### Local servers
+
+**Ollama, vLLM, and llama.cpp** each take a base URL instead of a key. Enter the
+endpoint (for example `http://localhost:11434/v1` for Ollama), **Test** it —
+which checks connectivity against the server's `/models` endpoint — and **Save**.
+
+### Choosing a model per node
+
+Provider and model are set **per agent node**, not globally. In a node's
+configuration panel, pick the provider, then choose a model from the list loaded
+from that provider's catalog (you can also type a custom model id). This is how a
+single workflow can run a cheap model for collection and a stronger model for
+synthesis.
+
+## Data sources
+
+Tools fetch from external sources. There are two kinds.
+
+### Public data tools
+
+Sources that need no key — exchanges like **OKX**, macro sources like the
+**ECB**, and news/social sources like **Guardian**, **Lemmy**, and **Mastodon**.
+The **Public Data Tools** section lists them by category with a toggle each;
+enable the ones your workflows use.
+
+### Additional tool APIs
+
+Sources that require a key. The **Additional Tool APIs** section lets you add a
+source's API key (and an optional base URL) so keyed tools can reach it, and
+remove it later.
+
+## Matching credentials to a workflow
+
+Before running any workflow, check which providers and sources it touches:
+
+- The **provider/model** on each agent node → configure that provider above.
+- The **tools** on each tool node, and the `source_ids` in each completion
+  contract → enable those data sources.
+
+Each entry in the [pattern gallery](/guides/patterns/) lists the exact tools and
+sources its workflow uses, so you can prepare credentials before you run.
