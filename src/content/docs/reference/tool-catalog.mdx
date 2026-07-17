@@ -1,32 +1,30 @@
 ---
-title: Tool catalog
+title: Tools you can use
 description: The tools agents can call, grouped by category, and how tool nodes expose them.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-Tools are atomic runtime capabilities agents call via the LLM tool-call
-protocol. They are addressable by name in a schema, parameterizable from the
-calling agent's instructions, and return typed, evidence-bearing output. Source
-of truth: `backend/tools/registry.py` (`TOOL_HIERARCHY`).
+Tools are the capabilities agents call while they run. They are named in a
+workflow, take arguments from the calling agent's instructions, and return typed,
+evidence-bearing output.
 
-An agent gains a tool by being connected to a **tool node** whose `config.tools`
-lists it, through a `tool_call` edge. Credentials for each tool are injected at
-run time from **Settings** — see
-[Configure providers and data sources](/guides/configure-providers/).
+An agent gains a tool by being connected to a tool node whose `config.tools` lists
+it, through a `tool_call` edge. Each tool's credentials come from your Settings at
+run time. See [Set up your keys and data sources](/guides/configure-providers/).
 
-## Fetch Data
+## Fetch data
 
 Acquire real market, macro, news, and social evidence.
 
 | Tool | Purpose |
 |---|---|
 | `fetch_exchange_data` | Market data: OHLCV candles, tickers, order books, trades, funding rates. |
-| `fetch_macro_data` | Macro/alternative data: policy rates and economic indicators. |
+| `fetch_macro_data` | Macro and alternative data: policy rates and economic indicators. |
 | `fetch_news_data` | News and filings: headlines and articles. |
 | `fetch_social_media_data` | Social posts, threads, and hashtag timelines. |
 
-The examples call these with a `source_id`, `source_type`, and query arguments —
+The examples call these with a `source_id`, a `source_type`, and query arguments,
 for instance:
 
 ```text
@@ -36,18 +34,18 @@ fetch_news_data      source_id='guardian', source_type='search',     query='Bitc
 fetch_social_media_data source_id='mastodon', source_type='hashtag', query='Bitcoin', limit=5
 ```
 
-A tool's returned `data_type` is `f"{source_id}_{source_type}"` (e.g.
-`okx_ticker`), which is what completion contracts match against — see
-[Completion contracts](/reference/completion-contracts/#the-data_type-convention).
+A tool's returned `data_type` is the source id and source type joined with an
+underscore (for example `okx_ticker`), which is what success rules match against.
+See [Success rules](/reference/completion-contracts/#the-data_type-convention).
 
-## Data Analysis
+## Data analysis
 
 Compute over fetched market data.
 
 | Tool | Purpose |
 |---|---|
-| `technical_analysis` | Technical indicators (RSI, MACD, Bollinger Bands, ATR, VWAP, moving averages, …). |
-| `quantitative_analysis` | Statistical metrics (alpha, beta, Sharpe, drawdown, correlation, …). |
+| `technical_analysis` | Technical indicators (RSI, MACD, Bollinger Bands, ATR, VWAP, moving averages, and more). |
+| `quantitative_analysis` | Statistical metrics (alpha, beta, Sharpe, drawdown, correlation, and more). |
 | `signal_analysis` | Higher-level signal detection: patterns, threshold crossings, supports, divergence. |
 | `diagnostic_analysis` | Diagnostic checks over series. |
 | `detect_regime` | Regime detection. |
@@ -55,13 +53,13 @@ Compute over fetched market data.
 | `simulate_process` | Process simulation. |
 | `run_monte_carlo` | Monte Carlo simulation. |
 
-## Text Analysis
+## Text analysis
 
-Turn large text corpora into structured, scored signal.
+Turn large amounts of text into structured, scored signal.
 
 | Tool | Purpose |
 |---|---|
-| `chunk_text` | Chunk, window, deduplicate, and normalize large corpora. |
+| `chunk_text` | Chunk, window, deduplicate, and normalize large text. |
 | `semantic_search` | Retrieve over stored data or documents. |
 | `extract_entities` | Named-entity and relationship extraction (tickers, companies, people, dates). |
 | `classify_text` | Classify text into categories. |
@@ -71,15 +69,15 @@ Turn large text corpora into structured, scored signal.
 
 ## Output
 
-Emit results outside the workflow.
+Send results outside the workflow.
 
 | Tool | Purpose |
 |---|---|
-| `send_webhook` | POST to a webhook. |
+| `send_webhook` | Post to a webhook. |
 | `send_email` | Send an email alert. |
 | `send_telegram` | Send a Telegram message. |
-| `write_output` | Structured export / append to a dataset. |
+| `write_output` | Structured export or append to a dataset. |
 
 <Aside type="tip">
-Split fetch and analysis onto **separate tool nodes** when different agents call them — for example a `fetch_*` node for the collector and a text-analysis node for the analyst, as in [News & Social Sentiment Digest](/guides/patterns/#news--social-sentiment-digest).
+Split fetch and analysis onto separate tool nodes when different agents call them, for example a fetch node for the collector and a text-analysis node for the analyst, as in [News and Social Pulse](/guides/patterns/#news-and-social-pulse).
 </Aside>

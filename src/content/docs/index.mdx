@@ -1,63 +1,122 @@
 ---
 title: Price Monitor Agent
-description: A no-code canvas for building agentic workflows that collect market, macro, news, and social evidence and reason over it to produce trading insight.
+description: A no-code canvas for building AI agents that research the markets and back every read with real evidence.
 template: splash
 hero:
-  tagline: Build agentic workflows on a canvas. Each node is an agent; each edge is data flow, a tool call, or synchronization. Agents fetch real market, macro, news, and social evidence, reason over it, and only succeed when they meet an explicit, machine-checked completion contract.
+  tagline: Build AI agents that research the markets for you, on a visual canvas, and get reads backed by real evidence instead of guesses.
+  image:
+    file: ../../assets/hero-agents.png
+    alt: AI agents pulling live price, news, macro, and social data and combining it into one verified summary
   actions:
     - text: Open the app
       link: https://app.traderai.tech
       icon: external
       variant: primary
-    - text: Build your first workflow
+    - text: See how it works
       link: /tutorials/first-workflow/
       icon: right-arrow
       variant: minimal
-    - text: Browse example workflows
-      link: /guides/patterns/
-      icon: document
-      variant: minimal
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Card, CardGrid, Steps, LinkButton } from '@astrojs/starlight/components';
 
 ## What it does
 
 <CardGrid>
-  <Card title="Compose on a canvas" icon="setting">
-    Drag agent, agent-group, and tool nodes onto a canvas and wire them with typed edges. The graph you draw *is* the workflow schema the backend executes — no separate config, no code.
+  <Card title="Design it visually, no code" icon="setting">
+    Drag agents and data tools onto a canvas and connect them into a flow. What you draw is the workflow. There is nothing separate to configure and nothing to write in code.
   </Card>
-  <Card title="Ground every claim in evidence" icon="magnifier">
-    Agents call tools to fetch OHLCV candles, policy rates, news, and social posts, then cite the returned evidence IDs. Fetching is a runtime agent decision, not a deploy-time setting.
+  <Card title="Reads backed by real data" icon="magnifier">
+    Your agents pull live prices, policy rates, news, and social posts, then show the evidence they used. Every claim traces back to a source you can open and check.
   </Card>
-  <Card title="Gate success with contracts" icon="approve-check">
-    A node succeeds only when it satisfies its completion contract: required tools, sources, fields, record counts, and a semantic judge. "Any text passes" is not an option.
+  <Card title="No hand-wavy answers" icon="approve-check">
+    Each step passes only when it clears a bar you set: the right data, the required detail, and a quality check. A vague answer does not count as done.
   </Card>
-  <Card title="Run and observe live" icon="rocket">
-    Trigger a run and watch each node stream its tool calls, retries, and output over SSE, with a per-node status ring on the run canvas.
+  <Card title="Watch it think, live" icon="rocket">
+    Start a run and watch each agent fetch data, reason, and report in real time, one step at a time.
   </Card>
 </CardGrid>
 
-## Three edge types, one contract
+## How it works
 
-A workflow is a directed graph of nodes joined by three edge types:
+Three steps take you from an idea to a running research agent.
 
-- **`data_flow`** — carries output and evidence from a producer agent to a consumer agent.
-- **`tool_call`** — the only way to authorize an agent to call a tool.
-- **`synchronization`** — co-stages two nodes so neither advances until both finish.
+<Steps>
 
-The schema is the shared contract between the canvas and the backend. The
-frontend reads and writes it; the backend reads it at execution time and
-orchestrates from it. Neither side owns it. Read the
-[architecture](/explanation/architecture/) for how the five layers fit together.
+1. **Design your workflow.** Drop agents and data tools on the canvas and connect them into the flow you want.
+
+2. **Connect your model.** Add your own provider key in Settings. Your keys and your runs stay yours.
+
+3. **Run and watch.** Launch the workflow and watch each agent gather evidence and produce a read, live.
+
+</Steps>
+
+<img src="/placeholders/run-demo.svg" alt="Placeholder reserved for a short recording of a live run" />
+
+## What you can build
+
+A few workflows you can open and run today, from a single agent to a whole team. Browse the full set in the [example gallery](/guides/patterns/).
+
+<CardGrid>
+  <Card title="Live price check">
+    ![Placeholder for the live price check workflow](/placeholders/example-placeholder.svg)
+
+    One agent pulls the live Bitcoin price and writes a crisp, evidence-cited read in seconds.
+
+    [Open example](/guides/patterns/#live-price-check)
+  </Card>
+  <Card title="News and social pulse">
+    ![Placeholder for the news and social pulse workflow](/placeholders/example-placeholder.svg)
+
+    Sweep the latest Bitcoin news and community chatter, then get a mood score backed by the posts behind it.
+
+    [Open example](/guides/patterns/#news-and-social-pulse)
+  </Card>
+  <Card title="A team of agents">
+    ![Placeholder for the multi-agent research workflow](/placeholders/example-placeholder.svg)
+
+    A planner hands work to a group of agents that research in parallel, then one writer merges their findings into a single briefing.
+
+    [Open example](/guides/patterns/#a-team-of-agents)
+  </Card>
+  <Card title="Parallel research tracks">
+    ![Placeholder for the parallel tracks workflow](/placeholders/example-placeholder.svg)
+
+    Split one question into independent tracks, like price and policy, that run side by side and rejoin at the end.
+
+    [Open example](/guides/patterns/#parallel-research-tracks)
+  </Card>
+  <Card title="Self-checking loop">
+    ![Placeholder for the self-checking loop workflow](/placeholders/example-placeholder.svg)
+
+    An agent drafts, a critic pushes back, and the workflow loops until the read is solid enough to ship.
+
+    [Open example](/guides/patterns/#self-checking-loop)
+  </Card>
+</CardGrid>
+
+## Open, and yours to run
+
+<CardGrid>
+  <Card title="Bring your own model" icon="setting">
+    Use your own provider key. You choose the model, and you never pay for anyone else's runs.
+  </Card>
+  <Card title="Public data, no setup" icon="magnifier">
+    Prices, policy rates, news, and social sources work out of the box, with no extra accounts to create.
+  </Card>
+  <Card title="Open examples" icon="open-book">
+    Every example workflow is published under an open license. Download one, adapt it, and make it your own.
+  </Card>
+</CardGrid>
 
 ## Start here
 
-- **New?** Follow the [tutorial](/tutorials/first-workflow/) to import a working
-  workflow, add a provider key, and run it.
-- **Have a goal?** The [how-to guides](/guides/use-an-example/) cover using an
-  example, authoring your own schema, and configuring providers.
-- **Need the rules?** The [reference](/reference/data-model/) documents the data
-  model, contracts, tool catalog, and validation, mirrored from the backend.
-- **Want the why?** The [explanation](/explanation/design-principles/) covers the
-  design principles behind the system.
+- **New here?** The [tutorial](/tutorials/first-workflow/) takes you from importing a working workflow to running it.
+- **Building something?** The [how-to guides](/guides/configure-providers/) cover connecting your model, using an example, and designing your own.
+- **Want the details?** The [building blocks](/reference/data-model/) pages explain every part you can place on the canvas.
+- **Curious how it thinks?** The [design principles](/explanation/design-principles/) explain the ideas behind it.
+
+---
+
+<LinkButton href="https://app.traderai.tech" icon="external">Open the app</LinkButton>
+<LinkButton href="/tutorials/first-workflow/" variant="secondary" icon="right-arrow">Build your first workflow</LinkButton>

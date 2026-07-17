@@ -1,36 +1,34 @@
 ---
-title: Completion contracts
-description: How a node decides it has succeeded — explicit requirements, machine-checkable evidence, reachability, and the semantic judge.
+title: Success rules
+description: How a node decides it has succeeded. Explicit requirements, machine-checkable evidence, reachability, and the quality judge.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-A completion contract is what makes a node's success *earned* rather than
-asserted. Source of truth: `backend/schema/models.py` (`CompletionContract`,
-`CompletionRequirement`, `EvidenceRequirement`) and
-`backend/schema/validation.py` (`_check_completion_contracts`).
+A success rule (a completion contract) is what makes a node's success earned rather
+than claimed.
 
 ## `CompletionContract`
 
 | Field | Meaning |
 |---|---|
-| `mode` | `explicit` requires ≥ 1 `requirement`; `disabled` sets no workflow-level requirements. |
+| `mode` | `explicit` requires at least one `requirement`; `disabled` sets no requirements. |
 | `requirements` | The list of requirements the node must satisfy. |
 | `requires_final_output` | The node must produce a final message. |
 | `minimum_output_characters` | Minimum length of that message. |
 | `required_output_fields` | Named fields the output must contain. |
 | `requires_evidence_citations` | The output must cite evidence. |
-| `judge_authority` | `advisory` or `binding` — how the semantic judge's verdict is treated (below). |
+| `judge_authority` | `advisory` or `binding`. How the quality judge's verdict is treated (below). |
 
 <Aside type="tip">
-**Prefer `mode: explicit` on every agent node.** A `disabled` contract with only a character minimum means any text of that length passes — the opposite of evidence-gated success.
+Prefer `mode: explicit` on every agent node. A `disabled` contract with only a character minimum means any text of that length passes, which is the opposite of evidence-backed success.
 </Aside>
 
 ## `CompletionRequirement` and `EvidenceRequirement`
 
-Each requirement has a `requirement_id`, a `description`, and an optional
-`evidence` block. Set `evidence: null` for a semantic-only requirement (planner,
-critic, reviewer) — the judge still enforces the description.
+Each requirement has a `requirement_id`, a `description`, and an optional `evidence`
+block. Set `evidence: null` for a requirement judged on quality alone (planner,
+critic, reviewer); the judge still enforces the description.
 
 An `EvidenceRequirement` is machine-checked:
 
@@ -39,60 +37,56 @@ An `EvidenceRequirement` is machine-checked:
 | `minimum_items` | Minimum number of evidence items. |
 | `minimum_records` | Minimum number of records within them. |
 | `tool_names` | Tools that must have produced the evidence. |
-| `source_ids` | Required source ids (e.g. `okx`, `ecb`, `guardian`). |
-| `source_types` | Required source types (e.g. `ticker`, `interest_rates`, `search`). |
+| `source_ids` | Required source ids (for example `okx`, `ecb`, `guardian`). |
+| `source_types` | Required source types (for example `ticker`, `interest_rates`, `search`). |
 | `data_types` | Required data types (below). |
-| `required_fields` | Dotted JSON paths that must be present, e.g. `last`, `0.value`. |
+| `required_fields` | Dotted paths that must be present, for example `last` or `0.value`. |
 
 ### The `data_type` convention
 
-A `data_type` is `f"{source_id}_{source_type}"` (`backend/tools/data_acquisition.py`).
-Proven combinations used by the examples:
+A `data_type` is the source id and source type joined with an underscore, like
+`okx_ticker`. Combinations used by the examples:
 
 | `data_type` | Notable `required_fields` |
 |---|---|
 | `okx_ticker` | `last`, `high24h`, `low24h`, `vol24h` |
 | `ecb_interest_rates` | `0.value` |
-| `guardian_search` | — |
-| `lemmy_search` | — |
-| `mastodon_hashtag` | — |
+| `guardian_search` | none required |
+| `lemmy_search` | none required |
+| `mastodon_hashtag` | none required |
 
-## Reachability (enforced)
+## Reachability (checked)
 
-A requirement's `tool_names` must be **reachable** from the node — either:
+A requirement's `tool_names` must be reachable from the node, either:
 
-- directly, via a `tool_call` edge to a tool node exposing that tool; **or**
-- indirectly, propagated over `data_flow` from an upstream collector. This needs
+- directly, through a `tool_call` edge to a tool node that exposes that tool; or
+- indirectly, passed over `data_flow` from an upstream collector. This needs
   `expose_downstream_state` on the source node and `read_upstream_state` on the
   target.
 
-This is why a downstream analyst can contract against evidence an upstream node
-collected without owning the tool-call edge itself — the pattern used in
-[Sequential Analysis](/guides/patterns/#sequential-analysis).
+This is why a downstream analyst can require evidence an upstream node collected
+without owning the tool connection itself, the pattern used in the
+[Two-Step Pipeline](/guides/patterns/#two-step-pipeline).
 
-## The semantic judge (`judge_authority`)
+## The quality judge (`judge_authority`)
 
-After the deterministic evidence checks pass, a semantic judge evaluates the
-output against the requirement descriptions. `judge_authority` decides what
-happens when the judge cannot return a valid verdict (truncated JSON, provider
-error):
+After the evidence checks pass, a judge evaluates the output against the requirement
+descriptions. `judge_authority` decides what happens when the judge cannot return a
+valid verdict (for example a truncated response or a provider error):
 
-- `advisory` (default) — accept the candidate if all deterministic evidence
-  checks passed.
-- `binding` — force `inconclusive` / `failed`.
+- `advisory` (default) accepts the candidate if all evidence checks passed.
+- `binding` forces an inconclusive or failed result.
 
-Prefer `advisory` unless the domain requires an explicit semantic gate.
+Prefer `advisory` unless the work truly needs a hard quality gate.
 
 ## Run-level failure policy
 
-`WorkflowConfig.on_node_failure` governs what a non-completed node does to the
-run (`backend/orchestration/executor.py` `_apply_node_result`):
+`WorkflowConfig.on_node_failure` decides what a node that does not complete does to
+the run:
 
-- `continue` (default) — the non-completed node is recorded and the run keeps
-  scheduling remaining nodes; the final run status becomes `partial` if any node
-  did not complete.
-- `fail_fast` — the run halts on the first non-completed node.
+- `continue` (default) records the node and keeps scheduling the rest; the run ends
+  `partial` if any node did not complete.
+- `fail_fast` stops the run at the first node that does not complete.
 
-An `AgentExecutionError` (for example, retries exhausted) is caught in the
-executor and converted to a clean `failed` node result rather than crashing the
-whole run.
+A node that runs out of retries becomes a clean `failed` result rather than crashing
+the whole run.

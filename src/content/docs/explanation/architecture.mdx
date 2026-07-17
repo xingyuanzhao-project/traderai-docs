@@ -1,89 +1,49 @@
 ---
-title: Architecture
-description: How the pieces fit together — the layered module architecture, the lifecycle of a run, and how the system is deployed.
+title: System design
+description: How Price Monitor Agent works, from the canvas you design on to the engine that runs each agent and checks its evidence.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-This page explains *how the system is built* and *why it is split the way it
-is*. For the exact fields you write, see the [Reference](/reference/data-model/);
-for step-by-step tasks, see the [how-to guides](/guides/use-an-example/).
+This page explains how the system works at a high level, so you know what happens
+when you press Run. For the exact parts you place on the canvas, see the
+[building blocks](/reference/data-model/). For step-by-step tasks, see the
+[how-to guides](/guides/use-an-example/).
 
-## The module map
+## The parts
 
-![Price Monitor Agent module architecture: Human at the top; a Frontend layer of Agent Canvas, Run Viewer, and User Settings UI; a Schema and Settings layer holding the Workflow Schema and User Settings; a Backend layer with Orchestration, Agentic Tools, Harness, and Core Agent; and the LLM Provider at the bottom.](/architecture.png)
+- **The canvas.** Where you design a workflow by dragging agents and tools and
+  connecting them. It is also where you watch a run play out, with a live status
+  on each node.
+- **The workflow.** What the canvas produces: the agents, the tools they can use,
+  the connections between them, and the rule each agent must satisfy to finish.
+  This is the single source of truth. The canvas writes it, and the engine reads
+  it.
+- **The engine.** Reads the workflow and runs it. It works out the order of the
+  steps, runs each agent, lets an agent call only the tools you connected, gathers
+  the evidence, and checks each agent against its success rule.
+- **Your model provider.** Every agent calls the model you chose, using the key you
+  added in Settings. There is no shared, hidden model behind the scenes.
 
-The diagram reads top to bottom as data flows from a person to a model and back.
+## What happens when you run
 
-**1 · Frontend** — the browser SPA (`frontend/`). Three surfaces: the **Agent
-Canvas** (drag-and-drop schema design), the **Run Viewer** (live per-node output
-over SSE), and the **User Settings UI** (provider keys, source endpoints).
-
-**2 · Schema & Settings** — the two documents the frontend produces. The
-**Workflow Schema** is the topology + config (validated by
-`backend/schema/validation.py`). **User Settings** are the provider keys, model
-selections, and source endpoints (`backend/settings/`), read at run time.
-
-**3 · Backend** — four cooperating modules:
-
-| Module | Package | Responsibility |
-|---|---|---|
-| **3b Orchestration** | `backend/orchestration/` | Turn the schema into an execution plan: validate topology, resolve loops into regions (`loops.py` `build_region_tree`), schedule nodes and groups (`scheduler.py`, `group.py`), apply per-node results (`executor.py` `_apply_node_result`). |
-| **3a Agentic Tools** | `backend/tools/` | The capability catalog (`registry.py` `TOOL_HIERARCHY`): data acquisition, financial + text analysis, alert dispatch, output. |
-| **3d Harness** | `backend/harness/` | Assemble each node's context within its `token_budget` (`context.py`) and drive execution (`execution.py`), resolving tool calls and enforcing constraints. |
-| **3c Core Agent** | `backend/agent/` | One agent turn: assemble context → call the LLM (`llm_provider.py`) → check completion (`completion.py`) → return structured, evidence-bearing output. |
-
-**LLM Provider** — whichever provider a node's `config.provider` selects; the
-call is made with the user's key from Settings, never a hosted default.
-
-<Aside type="note">
-The layer numbering (1 Frontend, 2 Schema & Settings, 3a–3d Backend) is the same numbering used in the diagram, so you can map each box to its package.
-</Aside>
-
-## The lifecycle of a run
-
-1. **Design.** You build or import a schema on the Canvas. Saving it `POST`s to
-   the API, which validates it server-side; an invalid schema is rejected with
-   the failing reason (never stored broken).
-2. **Enqueue.** Starting a run does not block the web request. The API calls
-   `celery_app.send_task("backend.workers.run_task.execute_run", …)` and returns
-   a run id. The task is queued on Redis.
-3. **Execute.** A Celery worker picks up the task. The worker pool is `solo`, and
-   the task body owns its own `asyncio.run` event loop
-   (`backend/workers/run_task.py`), so one worker runs one workflow at a time.
-4. **Orchestrate → harness → agent.** Orchestration schedules nodes in
-   dependency order (running loops and groups as regions); for each node the
-   harness assembles context and the core agent calls the model, issues any
-   authorized tool calls, gathers evidence, and is judged against its
-   [completion contract](/reference/completion-contracts/).
-5. **Stream.** Node events are published through Redis and streamed to the Run
-   Viewer over SSE as they happen. Run state is stored in Redis
-   (`backend/run_registry.py`), bounded by a retention TTL.
+1. **Design.** You build or import a workflow on the canvas. When you save it, the
+   app checks it and refuses to save one that is not sound, telling you why.
+2. **Start.** You press Run. The work happens in the background, so the app stays
+   responsive while a long workflow runs.
+3. **Execute.** The engine runs each agent in order. For each one it gathers the
+   right context, calls your model, lets the agent use its connected tools,
+   collects the evidence, and checks it against its
+   [success rule](/reference/completion-contracts/).
+4. **Watch.** Each step streams to the canvas as it happens, so you see tool calls,
+   retries, and output live, with a status on every node.
 
 <Aside type="tip">
-Because the web tier only *enqueues* and *reads state*, a long, expensive workflow never ties up an HTTP worker. You scale throughput by adding worker containers, not by making one process bigger.
+Because a run happens in the background, a long or expensive workflow never freezes the app. You keep browsing, and the run keeps streaming its progress.
 </Aside>
 
-## Deployment topology
+## Bring your own model
 
-The [`render.yaml`](https://render.com/docs/blueprint-spec) blueprint defines
-three services:
-
-| Service | Type | What it runs |
-|---|---|---|
-| `price-monitor-api` | Docker web | FastAPI API **and** the Celery worker, run together by `supervisord`. Health check: `/api/health`. |
-| `price-monitor-redis` | Key Value | Celery broker, result backend, and app-state store — logical DBs 0/1/2 on one instance. |
-| `price-monitor-frontend` | Static site | The built Vite/React SPA, served at **`app.traderai.tech`**. |
-
-Two configuration decisions worth calling out, both enforced in `render.yaml`:
-
-- **Bring-your-own-key.** No LLM provider key is set in the API environment. Each
-  user supplies their own key in Settings, so operators never pay for users' runs.
-- **Explicit CORS + domain split.** The SPA lives at `app.traderai.tech` and the
-  API allows exactly that origin (plus the `onrender.com` fallback). This public
-  docs site lives on the apex `traderai.tech` via GitHub Pages and never
-  calls the API, so it is deliberately *not* an allowed origin.
-
-<Aside type="caution">
-On the free Redis tier there is **no persistence**: the broker queue and run state are lost if Redis restarts, and the web filesystem is ephemeral (saved schemas/settings reset on redeploy). This is a cost choice, documented in `render.yaml`; switch Redis to the paid tier for durability.
-</Aside>
+Every run uses the provider key you set in Settings. If a run needs a key you have
+not added, it says so plainly instead of quietly using someone else's. You choose
+the model, and you never pay for anyone else's runs.

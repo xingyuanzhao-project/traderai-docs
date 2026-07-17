@@ -1,83 +1,69 @@
 ---
-title: Use an example schema
-description: Two ways to run a published example — import it in the hosted app, or drop it into a self-hosted schemas/ directory.
+title: Use an example
+description: Two ways to run a published example. Import it in the hosted app, or drop it into your own copy.
 ---
 
 import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-Every workflow in the [pattern gallery](/guides/patterns/) is published as a
-downloadable YAML file at `https://traderai.tech/examples/<schema_id>.yaml`.
-Each file is a complete `WorkflowSchema`, and its **filename stem is its
-`schema_id`** — for example, `simple_price_check.yaml` has
-`schema_id: simple_price_check`.
-
-There are two ways to run one. Use the hosted app for the fastest path; use the
-self-hosted route when you run your own copy of the backend.
+Every workflow in the [example gallery](/guides/patterns/) is a downloadable file
+you can run as is. The fastest way is to import it in the hosted app. If you run
+your own copy of Price Monitor Agent, you can also drop the file in and reload.
 
 <Tabs>
-<TabItem label="Hosted app (Import YAML)">
+<TabItem label="Hosted app (Import)">
 
-Load the file onto the canvas, review it, and save it — the same path you'd use
-to edit any workflow.
+Load the file onto the canvas, review it, and save it. This is the same path you
+use to edit any workflow.
 
 <Steps>
 
-1. **Download** the example you want, e.g.
+1. **Download** the example you want, for example
    [`sequential_analysis.yaml`](/examples/sequential_analysis.yaml).
 
 2. In the app's **Canvas** tab, click **Import YAML** on the Schemas panel and
    choose the downloaded file.
 
-3. The workflow loads onto the canvas exactly as saved — same nodes, edges,
-   configuration, and layout. Inspect any node in the right-hand panel.
+3. The workflow loads onto the canvas exactly as saved, with the same nodes,
+   connections, setup, and layout. Click any node to inspect it in the right-hand
+   panel.
 
-4. Click **Save**. The backend validates the schema on save (structure,
-   tool-authorization reachability, loop reducibility) and adds it to your schema
-   list. If anything is wrong, the error appears in the panel banner and nothing
-   is persisted.
+4. Click **Save**. The app checks the workflow when you save it and adds it to
+   your schema list. If something is wrong, the problem appears in the panel
+   banner and nothing is saved.
 
-5. Select the schema and click **Run**.
+5. Select the workflow and click **Run**.
 
 </Steps>
 
 <Aside type="note">
-Import loads the file's own `schema_id`. If a schema with that id already exists in your list, saving updates it; otherwise saving creates a new one. To keep both, rename the workflow before saving.
+Import keeps the file's own name. If a workflow with that name already exists in your list, saving updates it; otherwise saving creates a new one. To keep both, rename the workflow before saving.
 </Aside>
 
-**Export YAML** does the reverse: it downloads the current canvas as
-`<schema_id>.yaml`, key order preserved. That exported file is exactly the shape
-the self-hosted route below expects, so you can design in the app and deploy the
-file to your own backend.
+**Export YAML** does the reverse: it downloads the current canvas as a file you
+can share, back up, or run in your own copy.
 
 </TabItem>
-<TabItem label="Self-hosted (drop-in)">
+<TabItem label="Your own copy">
 
-If you run your own copy of the backend, schemas are loaded from disk.
+If you run your own copy of Price Monitor Agent, workflows are loaded from a
+folder on disk.
 
 <Steps>
 
-1. **Download** the example, or **Export YAML** one you built in the app.
+1. **Download** an example, or **Export YAML** one you built in the app.
 
-2. Place it in the backend's `schemas/` directory, keeping the filename as
-   `<schema_id>.yaml`. The stem must equal the `schema_id` inside the file — the
-   loader derives the id from the filename.
+2. Save it into your copy's workflows folder, keeping the filename.
 
-3. **Validate before running** (recommended). The shipping gate is a Pydantic
-   load through `SchemaPersistence.load_schema` plus `SchemaValidator.validate`.
-   See [Validation](/reference/validation/) for the exact checks and how to run
-   them.
+3. **Check it first** (recommended). See [Build checks](/reference/validation/)
+   for what is verified and how to run the check yourself.
 
-4. **Restart the backend.** It reads `schemas/` at startup and exposes every
-   valid file at `GET /api/schemas`, so the workflow appears in the Schemas
-   panel.
-
-5. Select it and **Run**, or trigger it directly with
-   `POST /api/runs` and body `{"schema_id": "<schema_id>"}`.
+4. **Reload** so the workflow appears in the Schemas panel, then select it and
+   **Run**.
 
 </Steps>
 
 <Aside type="caution">
-The hosted app runs on an ephemeral filesystem, so you can't drop files into its `schemas/` directory — use **Import YAML** there. The drop-in route is for a backend you control.
+The hosted app does not accept files dropped onto disk, so use **Import YAML** there. The drop-in route is for a copy you run yourself.
 </Aside>
 
 </TabItem>
@@ -85,16 +71,16 @@ The hosted app runs on an ephemeral filesystem, so you can't drop files into its
 
 ## Before you run: credentials
 
-An example only runs if the tools it calls can reach their data and the agents
-can reach their model:
+An example runs only if its tools can reach their data and its agents can reach
+their model.
 
-- **LLM provider** — every agent node names a `provider` and `model_id`. Add
-  that provider's key on the **Settings** tab (or change the node to a provider
-  you have). All seven examples default to OpenRouter.
-- **Data sources** — public sources like OKX (exchange), the ECB (macro), and
-  Guardian/Lemmy/Mastodon (news and social) need no key. If you point a workflow
-  at a keyed source, configure it under **Settings → data sources**.
+- **Model provider.** Every agent uses a provider and model. Add that provider's
+  key on the **Settings** tab, or switch the agent to a provider you already
+  have. All the examples default to OpenRouter.
+- **Data sources.** Public sources like OKX (exchange), the ECB (macro), and
+  Guardian, Lemmy, and Mastodon (news and social) need no key. If a workflow
+  points at a source that needs a key, add it under **Settings**.
 
-See [Configure providers and data sources](/guides/configure-providers/) for the
-details, and each entry in the [pattern gallery](/guides/patterns/) for the exact
-tools and sources a given example uses.
+See [Set up your keys and data sources](/guides/configure-providers/) for the
+details, and each entry in the [example gallery](/guides/patterns/) for the data
+sources a given workflow uses.

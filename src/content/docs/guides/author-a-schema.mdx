@@ -1,104 +1,90 @@
 ---
-title: Author a schema
-description: A practical recipe for building a workflow that collects real evidence and reasons over it, following the project's authoring conventions.
+title: Design your own workflow
+description: A practical recipe for building a workflow on the canvas that collects real evidence and reasons over it.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-This guide is the fast path to a sound workflow. It assumes you know the
-[data model](/reference/data-model/); here we focus on the decisions that make a
-workflow *work* rather than just validate. The authoritative, code-referenced
-rules live in the [reference](/reference/data-model/) and in the downloadable
-[`schema_conventions.md`](/examples/schema_conventions.md).
+This guide is the fast path to a workflow that works. It focuses on the decisions
+that make a workflow good, not just valid. For the exact rules behind each part,
+see the [building blocks](/reference/data-model/).
 
 <Aside type="note">
-This system is a price / economic monitor that produces trading insight. Every workflow should collect real market, macro, news, or social evidence and reason over it — not run a topology-only or abstract exercise.
+Price Monitor Agent produces trading insight from real data. Every workflow should collect real market, macro, news, or social evidence and reason over it, not run an empty, abstract exercise.
 </Aside>
 
-## 1. Sketch the roles, then the graph
+## 1. Sketch the roles, then the flow
 
-Decide the **functionary roles** first: a collector, an analyst, a critic, a
-synthesizer. Each role becomes one agent node. Then decide how evidence flows
-between them — that's your `data_flow` edges.
+Decide the roles first: a collector, an analyst, a critic, a synthesizer. Each role
+becomes one agent. Then decide how evidence should flow between them, and draw a
+connection for each hand-off.
 
-Give each node a `label` that is a **tight role**, not a task sentence:
-`Data Collector`, `Risk Critic`, `Briefing Synthesizer`. The label is the
-model's anchoring task at runtime, so keep the actual procedure out of it (see
-step 3).
+Give each agent a short, clear role name, like `Data Collector`, `Risk Critic`, or
+`Briefing Synthesizer`. That name is what the agent stays anchored to while it
+works, so keep the step-by-step part out of it (see step 3).
 
-## 2. Give each agent exactly one tool node it needs
+## 2. Give each agent the tools it needs
 
-An agent can only call a tool if a `tool_call` edge connects it to a **tool
-node**, and the tool node lists the callable tools in its `config.tools`. The
-calling agent keeps `config.tools: []`.
+An agent can use a tool only when you connect it to a tool node that carries that
+tool. Add a tool node, put the tools on it, and connect it to the agent that should
+use them.
 
-- Put a collector's fetch tools (`fetch_exchange_data`, `fetch_macro_data`,
-  `fetch_news_data`, `fetch_social_media_data`) on one tool node.
-- Put an analyst's text tools (`summarize_text`, `score_text`, …) on a separate
-  tool node when a different agent calls them.
+- Put a collector's fetch tools (prices, macro, news, social) on one tool node.
+- Put text tools (summarize, score) on a separate tool node for the agent that does
+  the analysis.
 
-Browse the full [tool catalog](/reference/tool-catalog/) for what's available.
+Browse [Tools you can use](/reference/tool-catalog/) for the full list.
 
-## 3. Write 3–5 imperative instruction bullets per agent
+## 3. Write three to five clear instructions per agent
 
-Instructions are the procedure. Each bullet must earn its place:
+Instructions are the procedure. Each one should earn its place:
 
-- **Name the exact operation and arguments.** For example:
-  `Call fetch_exchange_data with source_id='okx', source_type='ticker', symbol='BTC-USDT', limit=1.`
-- **Fix the output shape.** "Write three parts: setup, one level, invalidation."
-- **Require grounding.** "Cite the returned evidence ID in square brackets."
-- **Encode the guardrail.** "If no reviewer feedback is present, do not fabricate
-  it." Use terminal tokens like `ADEQUATE` or `APPROVED` for critics.
+- **Name the exact action.** For example, fetch the current Bitcoin price from OKX.
+- **Fix the shape of the output.** For example, write three parts: setup, one level,
+  and invalidation.
+- **Require grounding.** For example, cite the evidence you used in square brackets.
+- **Set the guardrail.** For example, if there is no reviewer feedback, do not make
+  it up. Use a clear finish word for a critic, like `APPROVED`.
 
-Pin the *interface* (tool, args, output parts, citation); leave the *judgment*
-(direction, level, verdict) to the model. Too abstract and it drifts; too
-specific and it parrots.
+Pin the interface (which tool, what output, cite evidence) and leave the judgment
+(direction, level, verdict) to the model. Too vague and it drifts; too rigid and it
+parrots.
 
-<Aside type="caution">
-YAML gotcha: an instruction bullet containing a colon-space (`: `) must be single-quoted, or the YAML parser reads it as a mapping key.
-</Aside>
+## 4. Give every agent a success rule
 
-## 4. Give every agent an explicit completion contract
+Give each agent a clear rule for what counts as done. A collector's rule should
+require real evidence: the right data, from the right source, with the fields you
+need. A role that does not collect, like a planner or critic, can be judged on the
+quality of its answer instead.
 
-Prefer `mode: explicit` on every agent node. A collector's contract should carry
-a machine-checkable `evidence` block — required `tool_names`, `source_ids`,
-`source_types`, `data_types`, and `required_fields`. A non-collecting role
-(planner, critic, reviewer) uses `evidence: null` — a semantic-only requirement
-the judge still enforces.
-
-A downstream analyst can contract against evidence an **upstream** node
-collected, as long as the evidence propagates over `data_flow` (source exposes
-downstream state, target reads upstream state). See
-[Completion contracts](/reference/completion-contracts/) for the reachability
-rule and the full evidence-key list.
+A later agent can be held to a rule about evidence an earlier agent collected, as
+long as that evidence flows to it. See [Success rules](/reference/completion-contracts/)
+for the details.
 
 ## 5. Add loops only where revision helps
 
-- A single agent that should iterate on its own output: set
-  `agent_loop_default: true` (budget from `WorkflowConfig.max_iterations`), or
-  add a self-loop `data_flow` edge carrying `loop_rounds`.
-- A multi-node revision cycle (draft → critique → back to draft): add a back
-  edge with `loop_rounds ≤ max_loop_rounds`. Keep the cycle single-entry so the
-  graph stays reducible.
+- To let one agent improve its own output, turn on its loop and set how many rounds
+  it gets.
+- For a draft-and-critique cycle across agents, connect a step back to an earlier
+  one and set how many rounds it may run. Keep the loop simple, with a single way
+  in.
 
-[Nodes, edges, and loops](/reference/nodes-edges-loops/) has the exact rules.
+[Nodes, connections, and loops](/reference/nodes-edges-loops/) has the exact rules.
 
 ## 6. Lay it out for readability
 
-There is no auto-layout — you set `position.x` / `position.y`. Flow top-to-down
-(producers above consumers, ~180–200px per row), keep a tool ~300px to the side
-of its calling agent, and leave the back-edge lane of a loop clear.
+Arrange the flow top to bottom, with producers above the agents that use them. Keep
+a tool node beside the agent that calls it, and leave room for a loop's return path.
+A workflow that reads clearly is easier to trust and to change.
 
-## 7. Validate, then run
+## 7. Save, then run
 
-Validate before shipping — Pydantic load plus `SchemaValidator.validate`
-(structure, reachability, loop reducibility). See
-[Validation](/reference/validation/). Then run it in the app or drop it into a
-self-hosted `schemas/` directory ([Use an example schema](/guides/use-an-example/)).
+Saving checks your workflow and tells you if anything is wrong. See
+[Build checks](/reference/validation/) for what is verified. Once it saves cleanly,
+run it in the app, or run it in your own copy ([Use an example](/guides/use-an-example/)).
 
 ## Learn by editing an example
 
-The quickest way to learn the shape is to import a
-[gallery example](/guides/patterns/) closest to your goal and adapt it: change
-the symbols, swap the sources, adjust the contracts. Every example is a working,
-validated starting point.
+The quickest way to learn the shape is to open the
+[gallery example](/guides/patterns/) closest to your goal and adapt it: change the
+coin, swap the sources, adjust the rules. Every example is a working starting point.

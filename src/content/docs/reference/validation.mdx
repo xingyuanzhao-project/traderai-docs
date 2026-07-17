@@ -1,75 +1,70 @@
 ---
-title: Validation
-description: What the validator checks before a schema can run, and how to validate locally.
+title: Build checks
+description: What the app checks before a workflow can run, and how to check it yourself.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-Every schema is validated before it can run. Source of truth:
-`backend/schema/validation.py` (`SchemaValidator`). Validation happens in two
-places automatically — when the app loads `schemas/` at startup, and when you
-save from the editor — and you can run it yourself locally.
+Every workflow is checked before it can run. The check happens automatically when
+you save in the app, and you can also run it yourself.
 
-## What the validator enforces
+## What the check enforces
 
-**Structural integrity**
+**Structure**
 
-- Every `node_id` is unique; every edge endpoint exists.
-- `node_type` ∈ {`agent`, `agent_group`, `tool`}; `edge_type` ∈ {`data_flow`,
-  `tool_call`, `synchronization`}.
+- Every `node_id` is unique, and every connection endpoint exists.
+- `node_type` is one of `agent`, `agent_group`, or `tool`; `edge_type` is one of
+  `data_flow`, `tool_call`, or `synchronization`.
 - `agent_group` nodes carry `group_config`.
 
-**Edge semantics**
+**Connections**
 
-- `data_flow` consumers are `agent`/`agent_group` (tools receive input only
+- `data_flow` consumers are `agent` or `agent_group` (tools receive input only
   through calls).
-- Tools are authorized only through `tool_call` edges; agents with tool access
-  keep `config.tools: []`.
+- Tools are authorized only through `tool_call` edges; agents with tool access keep
+  `config.tools: []`.
 
 **Loops**
 
 - A node with `agent_loop_default: false` that loops must have a self-loop
-  `data_flow` edge carrying `loop_rounds`.
-- `loop_rounds` ≤ `config.max_loop_rounds`.
-- The dependency graph must be **reducible** (single-entry loops).
+  `data_flow` connection carrying `loop_rounds`.
+- `loop_rounds` is at most `config.max_loop_rounds`.
+- Loops must have a single way in.
 
-**Completion contracts**
+**Success rules**
 
-- Every requirement's `tool_names` is **reachable** — directly via a `tool_call`
-  edge, or indirectly via `data_flow` with `expose_downstream_state` upstream and
-  `read_upstream_state` downstream.
+- Every requirement's `tool_names` is reachable, either directly through a
+  `tool_call` edge, or indirectly over `data_flow` with `expose_downstream_state`
+  upstream and `read_upstream_state` downstream.
 
 <Aside type="caution">
-Three legacy fields now **hard-fail** validation: `NodeConfig.termination_conditions`, `completion_contract.criteria`, and `completion_contract.missing_input_policy`. Remove them from any old schema before running.
+Three legacy fields now fail the check: `NodeConfig.termination_conditions`, `completion_contract.criteria`, and `completion_contract.missing_input_policy`. Remove them from any old workflow before running.
 </Aside>
 
-## Validate locally
+## Check it yourself
 
-Two levels, matching the project's own test harness.
+There are two levels.
 
-**Level 1 — structural (offline, free, instant).** Parse and validate without
-calling any model or data API. This is what confirms a schema is well-formed
-before you ship it. In the running app, saving a schema runs exactly these
-checks server-side and rejects an invalid schema with the failing reason.
+**Level 1, structure (offline, free, instant).** Confirm the workflow is
+well-formed without calling any model or data source. Saving in the app runs
+exactly these checks and refuses an invalid workflow, telling you why.
 
-**Level 2 — live end-to-end (costs tokens and hits data APIs).** Execute the
-schema against the running app with real provider keys and confirm each node
-reaches `completed` with the required evidence. Reserve this for schemas you are
-about to publish or run on a schedule.
+**Level 2, live end to end (costs tokens and calls data sources).** Run the
+workflow with real provider keys and confirm each node reaches `completed` with the
+required evidence. Save this for workflows you are about to publish or run on a
+schedule.
 
 <Aside type="note">
-The seven bundled [examples](/guides/patterns/) all pass Level 1 structural validation. Validate your own schema at Level 1 before every commit, and at Level 2 before you rely on it.
+Every bundled [example](/guides/patterns/) passes Level 1. Check your own workflow at Level 1 while you build, and at Level 2 before you rely on it.
 </Aside>
 
-## Pre-ship checklist
+## Before you publish
 
-Before you publish or schedule a schema:
-
-1. It validates at Level 1 with no errors.
-2. Every agent node has `mode: explicit` with at least one evidence-backed
-   requirement (planners/critics may use `evidence: null`).
-3. Every `tool_names` entry in a contract is reachable from that node.
-4. `label`s are tight functionary roles; procedures live in `instruction`.
+1. It passes Level 1 with no errors.
+2. Every agent has `mode: explicit` with at least one evidence-backed requirement
+   (planners and critics may use `evidence: null`).
+3. Every `tool_names` entry in a rule is reachable from that node.
+4. Labels are tight roles; procedures live in `instruction`.
 5. Loop budgets (`loop_rounds`, `max_iterations`) are set deliberately, within
    `max_loop_rounds`.
-6. No legacy hard-fail fields remain.
+6. No legacy failing fields remain.
