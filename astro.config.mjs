@@ -4,10 +4,10 @@ import starlight from "@astrojs/starlight";
 
 // The public landing + documentation site for Price Monitor Agent.
 //
-// `site` is the apex domain the Cloudflare Pages project serves (traderai.tech
-// + www). The running application lives on the app. subdomain and is linked
-// from the hero, never embedded here — this repository holds only public docs
-// and example schemas, not the application source.
+// `site` is the apex domain GitHub Pages serves (traderai.tech). The running
+// application lives on the app. subdomain and is linked from the hero, never
+// embedded here — this repository holds only public docs and example schemas,
+// not the application source.
 export default defineConfig({
   site: "https://traderai.tech",
   integrations: [

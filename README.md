@@ -43,17 +43,22 @@ npm run build    # production build into ./dist
 npm run preview  # serve the built ./dist locally
 ```
 
-Node 22 is pinned via [`.nvmrc`](./.nvmrc) to match the Cloudflare Pages build
-image.
+Node 22 is pinned via [`.nvmrc`](./.nvmrc) to match the Node version used by the
+deploy workflow.
 
 ## Deployment
 
-The site is deployed to **Cloudflare Pages** and served at the apex
-`traderai.tech` (with `www.` redirecting to it):
+The site is built and published by **GitHub Actions → GitHub Pages** on every
+push to `main` ([`.github/workflows/deploy-docs.yml`](./.github/workflows/deploy-docs.yml)).
+The workflow runs `npm ci && npm run build` on Node 22 and publishes `dist/` to
+the `gh-pages` branch with [`peaceiris/actions-gh-pages`](https://github.com/peaceiris/actions-gh-pages);
+GitHub Pages serves that branch at the apex domain `traderai.tech`, pinned by
+[`public/CNAME`](./public/CNAME).
 
 - **Build command:** `npm run build`
-- **Build output directory:** `dist`
+- **Publish directory:** `dist`
 - **Node version:** `22` (from `.nvmrc`)
+- **Custom domain:** `traderai.tech` (apex; Cloudflare DNS `A` records point to GitHub Pages, DNS-only)
 
 ## License
 

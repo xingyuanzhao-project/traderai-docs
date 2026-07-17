@@ -81,7 +81,7 @@ Two configuration decisions worth calling out, both enforced in `render.yaml`:
   user supplies their own key in Settings, so operators never pay for users' runs.
 - **Explicit CORS + domain split.** The SPA lives at `app.traderai.tech` and the
   API allows exactly that origin (plus the `onrender.com` fallback). This public
-  docs site lives on the apex `traderai.tech` via Cloudflare Pages and never
+  docs site lives on the apex `traderai.tech` via GitHub Pages and never
   calls the API, so it is deliberately *not* an allowed origin.
 
 <Aside type="caution">

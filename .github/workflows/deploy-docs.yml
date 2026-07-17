@@ -1,0 +1,42 @@
+name: Deploy docs
+
+# Build the Astro site and publish it to the gh-pages branch, which GitHub
+# Pages serves at the apex custom domain (traderai.tech). Mirrors the docs
+# deploy workflow from nocode-workflow, adapted for a root-level project.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# peaceiris/actions-gh-pages commits the built site to the gh-pages branch,
+# so the job needs write access to repository contents.
+permissions:
+  contents: write
+
+# A newer push supersedes an in-flight deploy rather than racing it.
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22" # matches .nvmrc
+          cache: npm
+
+      - name: Install dependencies and build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: dist
+          cname: traderai.tech
