@@ -1,66 +1,80 @@
-# Price Monitor Agent — landing page & documentation
+# Price Monitor Agent
 
-Public landing page and documentation for **Price Monitor Agent**, a no-code
-canvas for building agentic workflows that collect market, macro, news, and
-social evidence and reason over it to produce trading insight.
+Build AI agents that research the markets for you, on a visual canvas, and get
+reads backed by real evidence instead of guesses.
 
-- **Live docs:** https://traderai.tech
-- **Application:** https://app.traderai.tech
+[Open the app](https://app.traderai.tech) · [See how it works](https://traderai.tech/tutorials/first-workflow/)
 
-This repository contains only the public site (built with
-[Astro](https://astro.build) + [Starlight](https://starlight.astro.build)) and
-the published [example schemas](./public/examples). The application source code
-lives in a separate, private repository.
+## What it does
 
-## Documentation structure
+### Design it visually, no code
 
-The docs follow the [Diátaxis](https://diataxis.fr) framework, so every page has
-one clear purpose:
+Drag agents and data tools onto a canvas and connect them into a flow. What you
+draw is the workflow. There is nothing separate to configure and nothing to
+write in code.
 
-| Section | Purpose |
-|---|---|
-| **Tutorial** | One guaranteed-success path: import an example, add a key, run it. |
-| **How-to guides** | Goal-oriented recipes: use an example, author a schema, configure providers, and a pattern gallery. |
-| **Reference** | The schema data model, node/edge/loop rules, completion contracts, tool catalog, and validation — mirrored from the backend source of truth. |
-| **Explanation** | The five-layer architecture and the design principles behind it. |
+### Reads backed by real data
 
-## Example schemas
+Your agents pull live prices, policy rates, news, and social posts, then show
+the evidence they used. Every claim traces back to a source you can open and
+check.
 
-[`public/examples/`](./public/examples) holds the seven runnable workflow
-schemas featured in the docs, plus `schema_conventions.md` (the authoring
-companion). They are committed here and also served for download at
-`https://traderai.tech/examples/<schema_id>.yaml`. Each file is a complete
-`WorkflowSchema`; the filename stem is its `schema_id`. See
-[Use an example schema](https://traderai.tech/guides/use-an-example/) for the
-two ways to run them (import in the app, or drop into a self-hosted `schemas/`).
+### No hand-wavy answers
 
-## Local development
+Each step passes only when it clears a bar you set: the right data, the required
+detail, and a quality check. A vague answer does not count as done.
 
-```bash
-npm install
-npm run dev      # local dev server at http://localhost:4321
-npm run build    # production build into ./dist
-npm run preview  # serve the built ./dist locally
-```
+### Watch it think, live
 
-Node 22 is pinned via [`.nvmrc`](./.nvmrc) to match the Node version used by the
-deploy workflow.
+Start a run and watch each agent fetch data, reason, and report in real time,
+one step at a time.
 
-## Deployment
+## How it works
 
-The site is built and published by **GitHub Actions → GitHub Pages** on every
-push to `main` ([`.github/workflows/deploy-docs.yml`](./.github/workflows/deploy-docs.yml)).
-The workflow runs `npm ci && npm run build` on Node 22 and publishes `dist/` to
-the `gh-pages` branch with [`peaceiris/actions-gh-pages`](https://github.com/peaceiris/actions-gh-pages);
-GitHub Pages serves that branch at the apex domain `traderai.tech`, pinned by
-[`public/CNAME`](./public/CNAME).
+1. **Design your workflow.** Drop agents and data tools on the canvas and
+   connect them into the flow you want.
+2. **Connect your model.** Add your own provider key in Settings. Your keys and
+   your runs stay yours.
+3. **Run and watch.** Launch the workflow and watch each agent gather evidence
+   and produce a read, live.
 
-- **Build command:** `npm run build`
-- **Publish directory:** `dist`
-- **Node version:** `22` (from `.nvmrc`)
-- **Custom domain:** `traderai.tech` (apex; Cloudflare DNS `A` records point to GitHub Pages, DNS-only)
+## What you can build
+
+A few ways to use Price Monitor Agent, from a single agent to a whole team.
+Explore more ideas in the [example gallery](https://traderai.tech/guides/patterns/).
+
+### Live price check
+
+One agent pulls the live Bitcoin price and writes a crisp, evidence-cited read
+in seconds.
+
+### News and social pulse
+
+Sweep the latest Bitcoin news and community chatter, then get a mood score
+backed by the posts behind it.
+
+### A team of agents
+
+A planner hands work to a group of agents that research in parallel, then one
+writer merges their findings into a single briefing.
+
+### Parallel research tracks
+
+Split one question into independent tracks, like price and policy, that run
+side by side and rejoin at the end.
+
+### Self-checking loop
+
+An agent drafts, a critic pushes back, and the workflow loops until the read is
+solid enough to ship.
+
+## Start here
+
+- **New here?** [Build and run your first workflow](https://traderai.tech/tutorials/first-workflow/).
+- **Building something?** [How-to guides](https://traderai.tech/guides/configure-providers/) cover connecting your model, choosing data sources, and designing your own workflow.
+- **Want the details?** [Building blocks](https://traderai.tech/reference/data-model/) explain every part you can place on the canvas.
+- **Curious how it thinks?** [Design principles](https://traderai.tech/explanation/design-principles/) explain the ideas behind it.
 
 ## License
 
-The documentation and example schemas in this repository are released under the
-[MIT License](./LICENSE).
+[MIT License](./LICENSE)
